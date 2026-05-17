@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Homzho Flask ERP System
 
 A lightweight, modular, and mobile-responsive ERP system built with Flask, designed specifically for a water purifier rental business.
@@ -87,3 +88,7 @@ Visit `http://localhost:5000` and log in with your admin credentials.
    ```
 9. Map the `static` folder in the Web App section to `/home/username/mysite/static`.
 10. Reload the web app.
+=======
+# homzho_ERP
+homzhoERP application
+>>>>>>> 9569834bd1ff281f444c9ff4502a9a5edc340f0b
