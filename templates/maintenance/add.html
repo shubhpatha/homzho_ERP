@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Log Maintenance – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('maintenance.index') }}">Maintenance</a></li>
+      <li class="breadcrumb-item active">Log Service</li>
+    </ol></nav>
+    <h1 class="page-title">Log Service Visit</h1>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-tools text-primary"></i> Service Details</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('maintenance.add') }}" enctype="multipart/form-data" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Machine <span class="text-danger">*</span></label>
+              <select name="machine_id" class="form-select" required>
+                <option value="">— Select Machine —</option>
+                {% for m in machines %}
+                <option value="{{ m.machine_id }}" {% if prefill_machine_id == m.machine_id %}selected{% endif %}>{{ m.machine_serial_no }} ({{ m.machine_status }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Service Date <span class="text-danger">*</span></label>
+              <input type="date" name="service_date" class="form-control" value="{{ service_date_default }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Service Type <span class="text-danger">*</span></label>
+              <select name="service_type" class="form-select" required>
+                {% for t in service_types %}
+                <option value="{{ t }}">{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Technician Name</label>
+              <input type="text" name="technician_name" class="form-control" value="{{ current_user.full_name or current_user.username }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Water TDS Level</label>
+              <input type="number" name="water_tds" class="form-control" placeholder="e.g. 45" step="0.1" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Maintenance Cost (₹)</label>
+              <input type="number" name="main_exp" class="form-control" placeholder="0" min="0" step="0.01" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Travel Cost (₹)</label>
+              <input type="number" name="travel_exp" class="form-control" placeholder="0" min="0" step="0.01" />
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input type="checkbox" name="filter_changed" id="filter_changed" class="form-check-input" value="1" />
+                <label class="form-check-label fw-600" for="filter_changed">Filters were changed during this service</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Parts Replaced</label>
+              <input type="text" name="parts_replaced" class="form-control" placeholder="e.g. Carbon filter, RO membrane" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Customer Feedback</label>
+              <select name="customer_feedback" class="form-select">
+                <option value="">— Select —</option>
+                {% for f in feedback_options %}
+                <option value="{{ f }}">{{ f }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Service Image / Proof</label>
+              <input type="file" name="service_image" id="service_image" class="form-control" accept="image/*" />
+              <div id="imagePreviewContainer" class="mt-2 upload-grid"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remark" class="form-control" rows="2" placeholder="Any additional notes…"></textarea>
+            </div>
+            
+            <div class="col-12 d-flex justify-content-end gap-2 mt-4">
+              <a href="{{ url_for('maintenance.index') }}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Service Record</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

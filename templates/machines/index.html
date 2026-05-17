@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Machines – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Machine Inventory</h1>
+    <p class="page-subtitle">Total: {{ counts.total }} | Available: <strong class="text-success">{{ counts.available }}</strong> | Installed: {{ counts.installed }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('machines.export_csv') }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+    {% if current_user.has_permission('machines') %}
+    <a href="{{ url_for('machines.add') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Add Machine</a>
+    {% endif %}
+  </div>
+</div>
+
+<form method="GET" class="filter-bar mb-3">
+  <input type="text" name="search" class="form-control" placeholder="&#128269; Serial no, model…" value="{{ search }}">
+  <select name="status" class="form-select">
+    <option value="">All Statuses</option>
+    {% for s in ['Available','Installed','Under Maintenance','Scrapped'] %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+  <a href="{{ url_for('machines.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+</form>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Serial No</th>
+          <th>Model</th>
+          <th>Status</th>
+          <th>Condition</th>
+          <th>Assigned To</th>
+          <th>Next Service</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in machines %}
+        <tr>
+          <td>
+            <a href="{{ url_for('machines.view', machine_id=m.machine_id) }}" class="fw-600 text-decoration-none">
+              <i class="bi bi-cpu"></i> {{ m.machine_serial_no }}
+            </a>
+          </td>
+          <td>{{ m.model_name }}</td>
+          <td>
+            <span class="status-badge status-{{ m.machine_status | lower | replace(' ', '-') }}">
+              {{ m.machine_status }}
+            </span>
+          </td>
+          <td>{{ m.machine_condition }}</td>
+          <td>
+            {% if m.assigned_customer_id %}
+              {% set cust = m.customers[0] if m.customers else none %}
+              <a href="{{ url_for('customers.view', cust_id=m.assigned_customer_id) }}" class="text-decoration-none">
+                {{ cust.cust_name if cust else 'Customer #' ~ m.assigned_customer_id }}
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>{{ m.next_service_date.strftime('%d %b %Y') if m.next_service_date else '—' }}</td>
+          <td>
+            <a href="{{ url_for('machines.view', machine_id=m.machine_id) }}" class="btn btn-icon btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            {% if current_user.has_permission('machines') %}
+            <a href="{{ url_for('machines.edit', machine_id=m.machine_id) }}" class="btn btn-icon btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-5">No machines found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}–{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</small>
+    <nav><ul class="pagination pagination-sm mb-0">
+      {% if pagination.has_prev %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('machines.index', page=pagination.prev_num, search=search, status=status_filter) }}">‹</a></li>
+      {% endif %}
+      {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('machines.index', page=p, search=search, status=status_filter) }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('machines.index', page=pagination.next_num, search=search, status=status_filter) }}">›</a></li>
+      {% endif %}
+    </ul></nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

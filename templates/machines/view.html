@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ machine.machine_serial_no }} - Homzho ERP{% endblock %}
+
+{% block content %}
+{% set assigned_customer = machine.customers[0] if machine.customers else none %}
+
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('machines.index') }}">Machines</a></li>
+      <li class="breadcrumb-item active">{{ machine.machine_serial_no }}</li>
+    </ol></nav>
+    <h1 class="page-title">{{ machine.machine_serial_no }}</h1>
+    <span class="status-badge status-{{ machine.machine_status | lower | replace(' ', '-') }}">{{ machine.machine_status }}</span>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('maintenance.add') }}?machine_id={{ machine.machine_id }}" class="btn btn-primary">
+      <i class="bi bi-tools"></i> Log Service
+    </a>
+    {% if current_user.has_permission('machines') %}
+    <a href="{{ url_for('machines.edit', machine_id=machine.machine_id) }}" class="btn btn-outline-primary">
+      <i class="bi bi-pencil"></i> Edit
+    </a>
+    {% endif %}
+    <a href="{{ url_for('machines.index') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Machines
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-cpu text-primary"></i> Inventory Details</div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th width="45%">Serial No</th><td class="fw-600">{{ machine.machine_serial_no }}</td></tr>
+          <tr><th>Model</th><td>{{ machine.model_name }}</td></tr>
+          <tr><th>Status</th><td>{{ machine.machine_status }}</td></tr>
+          <tr><th>Condition</th><td>{{ machine.machine_condition or '-' }}</td></tr>
+          <tr><th>TDS Level</th><td>{{ machine.tds_level if machine.tds_level is not none else '-' }}</td></tr>
+          <tr><th>Created</th><td>{{ machine.created_at.strftime('%d %b %Y') if machine.created_at else '-' }}</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-person-check text-primary"></i> Assignment</div>
+      <div class="card-body">
+        {% if machine.assigned_customer_id %}
+        <table class="table table-sm table-borderless mb-0">
+          <tr>
+            <th width="45%">Customer</th>
+            <td>
+              {% if assigned_customer %}
+              <a href="{{ url_for('customers.view', cust_id=assigned_customer.cust_id) }}">{{ assigned_customer.cust_name }}</a>
+              {% else %}
+              Customer #{{ machine.assigned_customer_id }}
+              {% endif %}
+            </td>
+          </tr>
+          <tr><th>Install Date</th><td>{{ machine.installation_date.strftime('%d %b %Y') if machine.installation_date else '-' }}</td></tr>
+        </table>
+        {% else %}
+        <p class="text-muted mb-0">This machine is not assigned to a customer.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-calendar-check text-primary"></i> Service Schedule</div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th width="45%">Last Service</th><td>{{ machine.last_service_date.strftime('%d %b %Y') if machine.last_service_date else '-' }}</td></tr>
+          <tr><th>Next Service</th><td>{{ machine.next_service_date.strftime('%d %b %Y') if machine.next_service_date else '-' }}</td></tr>
+          <tr><th>Filter Due</th><td>{{ machine.filter_change_due.strftime('%d %b %Y') if machine.filter_change_due else '-' }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-tools text-primary"></i> Maintenance History</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr><th>Date</th><th>Type</th><th>Technician</th><th>TDS</th><th>Next Service</th><th>Cost</th></tr>
+            </thead>
+            <tbody>
+              {% for m in maintenance_records %}
+              <tr>
+                <td>{{ m.service_date.strftime('%d %b %Y') }}</td>
+                <td>{{ m.service_type }}</td>
+                <td>{{ m.technician_name or '-' }}</td>
+                <td>{{ m.water_tds if m.water_tds is not none else '-' }}</td>
+                <td>{{ m.next_service_date.strftime('%d %b %Y') if m.next_service_date else '-' }}</td>
+                <td>{{ '{:,.0f}'.format((m.main_exp or 0) + (m.travel_exp or 0)) }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="text-center text-muted py-4">No maintenance records yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-clock-history text-primary"></i> Assignment History</div>
+      <div class="card-body">
+        <div class="timeline">
+          {% for h in assignment_history %}
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-date">
+              {{ h.assigned_on.strftime('%d %b %Y') }}
+              {% if h.returned_on %} to {{ h.returned_on.strftime('%d %b %Y') }}{% else %}<span class="badge bg-success">Current</span>{% endif %}
+            </div>
+            <div class="timeline-content">
+              {% if h.customer %}
+              <a href="{{ url_for('customers.view', cust_id=h.customer.cust_id) }}" class="fw-600">{{ h.customer.cust_name }}</a>
+              {% else %}
+              <span class="fw-600">Customer #{{ h.customer_id }}</span>
+              {% endif %}
+              {% if h.remarks %} - {{ h.remarks }}{% endif %}
+            </div>
+          </div>
+          {% else %}
+          <p class="text-muted mb-0">No assignment history.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {% if machine.remarks %}
+    <div class="card">
+      <div class="card-header"><i class="bi bi-sticky text-warning"></i> Remarks</div>
+      <div class="card-body">{{ machine.remarks }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

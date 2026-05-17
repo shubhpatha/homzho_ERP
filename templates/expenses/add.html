@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Add Expense – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('expenses.index') }}">Expenses</a></li>
+      <li class="breadcrumb-item active">Add Expense</li>
+    </ol></nav>
+    <h1 class="page-title">Add New Expense</h1>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-wallet2 text-danger"></i> Expense Details</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('expenses.add') }}" enctype="multipart/form-data" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Date <span class="text-danger">*</span></label>
+              <input type="date" name="expense_date" class="form-control" value="{{ expense_date_default }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Category <span class="text-danger">*</span></label>
+              <select name="expense_category" class="form-select" required>
+                {% for c in categories %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Amount (₹) <span class="text-danger">*</span></label>
+              <input type="number" name="amount" class="form-control" placeholder="0.00" min="0" step="0.01" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Mode <span class="text-danger">*</span></label>
+              <select name="payment_mode" class="form-select" required>
+                {% for m in payment_modes %}
+                <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Paid To (Vendor/Person)</label>
+              <input type="text" name="paid_to" class="form-control" placeholder="e.g. Indian Oil, Raj Tech" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Approved By</label>
+              <input type="text" name="approved_by" class="form-control" value="{{ current_user.full_name or current_user.username }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Bill Image / Receipt</label>
+              <input type="file" name="bill_image" id="bill_image" class="form-control" accept="image/*,.pdf" />
+              <div id="billImagePreview" class="mt-2 upload-grid"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remarks" class="form-control" rows="2" placeholder="Describe the expense…"></textarea>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2 mt-4">
+              <a href="{{ url_for('expenses.index') }}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-danger"><i class="bi bi-save"></i> Save Expense</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Due Maintenance – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('maintenance.index') }}">Maintenance</a></li>
+      <li class="breadcrumb-item active">Due Services</li>
+    </ol></nav>
+    <h1 class="page-title"><i class="bi bi-bell-fill text-warning"></i> Due & Overdue Maintenance</h1>
+  </div>
+</div>
+
+<ul class="nav nav-pills mb-3 mt-4 gap-2" id="dueTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active btn-sm" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">
+      Overdue <span class="badge bg-danger ms-1">{{ overdue|length }}</span>
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link btn-sm" id="due7-tab" data-bs-toggle="tab" data-bs-target="#due7" type="button" role="tab">
+      Due in 7 Days <span class="badge bg-warning text-dark ms-1">{{ due_7|length }}</span>
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link btn-sm" id="due15-tab" data-bs-toggle="tab" data-bs-target="#due15" type="button" role="tab">
+      Due 8-15 Days <span class="badge bg-secondary ms-1">{{ due_15|length }}</span>
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content" id="dueTabsContent">
+  <!-- Overdue Tab -->
+  <div class="tab-pane fade show active" id="overdue" role="tabpanel" tabindex="0">
+    <div class="card border-danger">
+      <div class="card-header bg-danger text-white fw-600"><i class="bi bi-exclamation-octagon-fill"></i> Overdue Maintenance</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Machine Serial</th><th>Customer</th><th>Next Service</th><th>Days Overdue</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for m in overdue %}
+            <tr>
+              <td><a href="{{ url_for('machines.view', machine_id=m.machine_id) }}" class="fw-600">{{ m.machine_serial_no }}</a></td>
+              <td>
+                {% if m.assigned_customer_id %}
+                  {% set cust = m.customers[0] if m.customers else none %}
+                  <a href="{{ url_for('customers.view', cust_id=m.assigned_customer_id) }}">{{ cust.cust_name if cust else 'Customer' }}</a>
+                  <br><small><a href="tel:{{ cust.contact_number if cust else '' }}">{{ cust.contact_number if cust else '' }}</a></small>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="text-danger fw-600">{{ m.next_service_date.strftime('%d %b %Y') }}</td>
+              <td><span class="status-badge status-overdue">{{ (today - m.next_service_date).days }}d</span></td>
+              <td><a href="{{ url_for('maintenance.add') }}?machine_id={{ m.machine_id }}" class="btn btn-sm btn-primary">Log Service</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center py-4 text-muted">No overdue maintenance!</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Due in 7 Days Tab -->
+  <div class="tab-pane fade" id="due7" role="tabpanel" tabindex="0">
+    <div class="card border-warning">
+      <div class="card-header bg-warning text-dark fw-600"><i class="bi bi-clock-history"></i> Due within 7 Days</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Machine Serial</th><th>Customer</th><th>Next Service</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for m in due_7 %}
+            <tr>
+              <td><a href="{{ url_for('machines.view', machine_id=m.machine_id) }}" class="fw-600">{{ m.machine_serial_no }}</a></td>
+              <td>
+                {% if m.assigned_customer_id %}
+                  {% set cust = m.customers[0] if m.customers else none %}
+                  <a href="{{ url_for('customers.view', cust_id=m.assigned_customer_id) }}">{{ cust.cust_name if cust else 'Customer' }}</a>
+                  <br><small><a href="tel:{{ cust.contact_number if cust else '' }}">{{ cust.contact_number if cust else '' }}</a></small>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="text-warning fw-600">{{ m.next_service_date.strftime('%d %b %Y') }}</td>
+              <td><a href="{{ url_for('maintenance.add') }}?machine_id={{ m.machine_id }}" class="btn btn-sm btn-primary">Log Service</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center py-4 text-muted">No maintenance due in next 7 days.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Due 8-15 Days Tab -->
+  <div class="tab-pane fade" id="due15" role="tabpanel" tabindex="0">
+    <div class="card">
+      <div class="card-header fw-600"><i class="bi bi-calendar3"></i> Due in 8-15 Days</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Machine Serial</th><th>Customer</th><th>Next Service</th></tr></thead>
+          <tbody>
+            {% for m in due_15 %}
+            <tr>
+              <td><a href="{{ url_for('machines.view', machine_id=m.machine_id) }}" class="fw-600">{{ m.machine_serial_no }}</a></td>
+              <td>
+                {% if m.assigned_customer_id %}
+                  {% set cust = m.customers[0] if m.customers else none %}
+                  <a href="{{ url_for('customers.view', cust_id=m.assigned_customer_id) }}">{{ cust.cust_name if cust else 'Customer' }}</a>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td>{{ m.next_service_date.strftime('%d %b %Y') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center py-4 text-muted">No maintenance due in 8-15 days.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Payments – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Payments</h1>
+    <p class="page-subtitle">Monthly Collection: <strong class="text-success">₹{{ '{:,.0f}'.format(monthly_total) }}</strong></p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('payments.export_csv') }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+    <a href="{{ url_for('payments.overdue') }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-exclamation-triangle"></i> Overdue</a>
+    {% if current_user.has_permission('payments') %}
+    <a href="{{ url_for('payments.add') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Record Payment</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<form method="GET" class="filter-bar mb-3">
+  <input type="text" name="search" class="form-control" placeholder="&#128269; Invoice, customer, transaction ID…" value="{{ search }}">
+  <select name="status" class="form-select">
+    <option value="">All Status</option>
+    {% for s in ['Paid','Partial','Overdue','Pending'] %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <input type="month" name="month" class="form-control" value="{{ month_filter }}" title="Filter by month">
+  <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+  <a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+</form>
+
+<!-- Table -->
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Invoice No</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Amount Paid</th>
+          <th>Amount Due</th>
+          <th>Mode</th>
+          <th>Status</th>
+          <th>Collected By</th>
+          <th>Next Due</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td><a href="{{ url_for('payments.view', payment_id=p.payment_id) }}" class="fw-600 text-primary">{{ p.invoice_no }}</a></td>
+          <td>
+            <a href="{{ url_for('customers.view', cust_id=p.customer_id) }}" class="text-decoration-none">
+              {{ p.customer.cust_name if p.customer else '—' }}
+            </a>
+          </td>
+          <td>{{ p.payment_date.strftime('%d %b %Y') }}</td>
+          <td class="fw-600 text-success">₹{{ '{:,.0f}'.format(p.amount_paid) }}</td>
+          <td class="text-muted">₹{{ '{:,.0f}'.format(p.amount_due) }}</td>
+          <td><small>{{ p.payment_mode }}</small></td>
+          <td>
+            <span class="status-badge status-{{ p.payment_status | lower }}">{{ p.payment_status }}</span>
+            {% if p.days_overdue > 0 %}<br><small class="text-danger">{{ p.days_overdue }}d late</small>{% endif %}
+          </td>
+          <td><small class="text-muted">{{ p.collected_by or '—' }}</small></td>
+          <td>
+            {% if p.next_due_date %}
+              <small>{{ p.next_due_date.strftime('%d %b %Y') }}</small>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('payments.view', payment_id=p.payment_id) }}" class="btn btn-icon btn-sm btn-outline-secondary" title="Invoice"><i class="bi bi-receipt"></i></a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="text-center text-muted py-5">
+          <i class="bi bi-cash-coin fs-2 d-block mb-2"></i> No payments found.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}–{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</small>
+    <nav><ul class="pagination pagination-sm mb-0">
+      {% if pagination.has_prev %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('payments.index', page=pagination.prev_num, search=search, status=status_filter, month=month_filter) }}">‹</a></li>
+      {% endif %}
+      {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('payments.index', page=p, search=search, status=status_filter, month=month_filter) }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('payments.index', page=pagination.next_num, search=search, status=status_filter, month=month_filter) }}">›</a></li>
+      {% endif %}
+    </ul></nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

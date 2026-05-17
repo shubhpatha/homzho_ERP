@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Expenses – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Expenses</h1>
+    <p class="page-subtitle">Monthly Total: <strong class="text-danger">₹{{ '{:,.0f}'.format(monthly_total) }}</strong></p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('expenses.export_csv') }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+    {% if current_user.has_permission('expenses') %}
+    <a href="{{ url_for('expenses.add') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Add Expense</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-8">
+    <form method="GET" class="filter-bar h-100 mb-0">
+      <select name="category" class="form-select">
+        <option value="">All Categories</option>
+        {% for c in categories %}
+        <option value="{{ c }}" {% if category_filter == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+      <input type="month" name="month" class="form-control" value="{{ month_filter }}" title="Filter by month">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+      <a href="{{ url_for('expenses.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+    </form>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-body p-2 d-flex gap-2 overflow-auto" style="white-space:nowrap; align-items:center;">
+        {% for cat in cat_totals %}
+        <div class="border rounded px-3 py-2 bg-light">
+          <div class="small text-muted fw-600">{{ cat.expense_category }}</div>
+          <div class="fw-bold">₹{{ '{:,.0f}'.format(cat.total) }}</div>
+        </div>
+        {% else %}
+        <div class="text-muted w-100 text-center small">No expenses this month.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Category</th>
+          <th>Amount</th>
+          <th>Mode</th>
+          <th>Paid To</th>
+          <th>Approved By</th>
+          <th>Remarks</th>
+          <th>Bill</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in expenses %}
+        <tr>
+          <td class="fw-600">{{ e.expense_date.strftime('%d %b %Y') }}</td>
+          <td><span class="badge bg-secondary">{{ e.expense_category }}</span></td>
+          <td class="fw-600 text-danger">₹{{ '{:,.2f}'.format(e.amount) }}</td>
+          <td><small>{{ e.payment_mode }}</small></td>
+          <td>{{ e.paid_to or '—' }}</td>
+          <td>{{ e.approved_by or '—' }}</td>
+          <td><small class="text-muted">{{ e.remarks or '—' }}</small></td>
+          <td>
+            {% if e.bill_image %}
+            <a href="{{ url_for('static', filename=e.bill_image) }}" target="_blank" class="btn btn-sm btn-icon btn-outline-primary" title="View Bill"><i class="bi bi-receipt"></i></a>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-5">No expenses recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}–{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</small>
+    <nav><ul class="pagination pagination-sm mb-0">
+      {% if pagination.has_prev %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('expenses.index', page=pagination.prev_num, category=category_filter, month=month_filter) }}">‹</a></li>
+      {% endif %}
+      {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('expenses.index', page=p, category=category_filter, month=month_filter) }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('expenses.index', page=pagination.next_num, category=category_filter, month=month_filter) }}">›</a></li>
+      {% endif %}
+    </ul></nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

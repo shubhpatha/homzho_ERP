@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Reports – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-bar-chart-fill text-primary"></i> Analytics & Reports</h1>
+    <p class="page-subtitle">Business intelligence and performance tracking</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="GET" class="card mb-4">
+  <div class="card-body p-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small mb-1">Start Date</label>
+        <input type="date" name="start_date" class="form-control form-control-sm" value="{{ request.args.get('start_date', start_date.strftime('%Y-%m-%d')) }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1">End Date</label>
+        <input type="date" name="end_date" class="form-control form-control-sm" value="{{ request.args.get('end_date', end_date.strftime('%Y-%m-%d')) }}">
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel"></i> Generate Report</button>
+      </div>
+      <div class="col-md-3 text-end">
+        <a href="{{ url_for('reports.export_summary', start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}" class="btn btn-sm btn-outline-success">
+          <i class="bi bi-download"></i> Export CSV
+        </a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="row g-3">
+  <!-- Revenue vs Expenses -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-wallet2 text-success"></i> Financial Summary</div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Total Revenue</span>
+          <span class="fw-bold text-success">₹{{ '{:,.0f}'.format(total_revenue) }}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Total Expenses</span>
+          <span class="fw-bold text-danger">₹{{ '{:,.0f}'.format(total_expenses) }}</span>
+        </div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold">Net Profit</span>
+          <span class="fw-bold fs-5 {% if total_revenue - total_expenses >= 0 %}text-success{% else %}text-danger{% endif %}">
+            ₹{{ '{:,.0f}'.format(total_revenue - total_expenses) }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Machine Status Distribution -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-pie-chart text-primary"></i> Machine Status</div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for st in machine_status %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ st.machine_status }}
+            <span class="badge bg-primary rounded-pill">{{ st.count }}</span>
+          </li>
+          {% else %}
+          <li class="list-group-item text-center text-muted">No machine data.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Expense Breakdown -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-tags text-danger"></i> Expense Breakdown by Category</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Category</th><th class="text-end">Amount</th></tr></thead>
+            <tbody>
+              {% for exp in expense_breakdown %}
+              <tr>
+                <td>{{ exp.expense_category }}</td>
+                <td class="text-end fw-600">₹{{ '{:,.0f}'.format(exp.total) }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="2" class="text-center text-muted py-3">No expenses in this period.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- New Customers vs Cancellations -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-person-plus text-success"></i> New Customers</div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <div class="text-center">
+          <div class="display-4 fw-bold text-success">{{ new_customers }}</div>
+          <div class="text-muted">Acquired in this period</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-person-dash text-danger"></i> Cancellations</div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <div class="text-center">
+          <div class="display-4 fw-bold text-danger">{{ cancelled_customers }}</div>
+          <div class="text-muted">Cancelled in this period</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

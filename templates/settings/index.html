@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Settings - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-gear-fill text-primary"></i> System Settings</h1>
+    <p class="page-subtitle">Manage users, plans, backups, and activity logs</p>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-card-checklist text-primary"></i> Master Data</div>
+      <div class="card-body">
+        <a href="{{ url_for('settings.plans') }}" class="btn btn-primary w-100">
+          <i class="bi bi-card-list"></i> Manage Plans
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people-fill text-primary"></i> Users</span>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+          <i class="bi bi-person-plus"></i> Add User
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>User</th><th>Email</th><th>Access</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td><div class="fw-600">{{ u.full_name or u.username }}</div><small class="text-muted">@{{ u.username }}</small></td>
+              <td>{{ u.email }}</td>
+              <td>
+                <span class="status-badge status-{{ 'active' if u.role == 'admin' else 'pending' }}">{{ u.role|capitalize }}</span>
+                {% if u.role == 'custom' %}
+                <br><small class="text-muted">{{ u.permission_set()|join(', ') }}</small>
+                {% endif %}
+              </td>
+              <td>{{ 'Active' if u.is_active else 'Disabled' }}</td>
+              <td>
+                {% if u.id != current_user.id %}
+                <form method="POST" action="{{ url_for('settings.toggle_user', user_id=u.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-icon btn-sm btn-outline-{{ 'warning' if u.is_active else 'success' }}" title="{{ 'Disable' if u.is_active else 'Enable' }}">
+                    <i class="bi bi-{{ 'pause-circle' if u.is_active else 'play-circle' }}"></i>
+                  </button>
+                </form>
+                {% endif %}
+                <button class="btn btn-icon btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#resetPassword{{ u.id }}" title="Reset password">
+                  <i class="bi bi-key"></i>
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No users found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addUserModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('settings.add_user') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="modal-header">
+          <h5 class="modal-title">Add User</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Full Name</label>
+              <input type="text" name="full_name" class="form-control" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Username</label>
+              <input type="text" name="username" class="form-control" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Password</label>
+              <input type="password" name="password" class="form-control" minlength="6" required />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Access Type</label>
+              <select name="role" id="roleSelect" class="form-select" required>
+                <option value="operator">Operator - customers, payments, machines, expenses, maintenance</option>
+                <option value="technician">Technician - maintenance and machine service</option>
+                <option value="custom">Custom - choose modules below</option>
+                <option value="admin">Admin - full access including settings</option>
+              </select>
+            </div>
+            <div class="col-12" id="customPermissions">
+              <label class="form-label">Custom Module Access</label>
+              <div class="row g-2">
+                {% for value, label in permission_options %}
+                <div class="col-sm-6 col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="permissions" value="{{ value }}" id="perm_{{ value }}">
+                    <label class="form-check-label" for="perm_{{ value }}">{{ label }}</label>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% for u in users %}
+<div class="modal fade" id="resetPassword{{ u.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('settings.reset_password', user_id=u.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="modal-header">
+          <h5 class="modal-title">Reset Password</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted">Set a new password for <strong>{{ u.username }}</strong>.</p>
+          <label class="form-label">New Password</label>
+          <input type="password" name="new_password" class="form-control" minlength="6" required />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Reset Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+function syncPermissionVisibility() {
+  const isCustom = document.getElementById('roleSelect')?.value === 'custom';
+  const box = document.getElementById('customPermissions');
+  if (box) box.style.display = isCustom ? '' : 'none';
+}
+document.getElementById('roleSelect')?.addEventListener('change', syncPermissionVisibility);
+syncPermissionVisibility();
+</script>
+{% endblock %}

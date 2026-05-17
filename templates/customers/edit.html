@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Edit Customer – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('customers.index') }}">Customers</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('customers.view', cust_id=customer.cust_id) }}">{{ customer.cust_name }}</a></li>
+      <li class="breadcrumb-item active">Edit</li>
+    </ol></nav>
+    <h1 class="page-title">Edit Customer</h1>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('customers.edit', cust_id=customer.cust_id) }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <div class="row g-3">
+
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-person-fill text-primary"></i> Customer Information</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="cust_name" class="form-control" value="{{ customer.cust_name }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+              <input type="tel" name="contact_number" class="form-control" value="{{ customer.contact_number }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email_id" class="form-control" value="{{ customer.email_id or '' }}" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Address</label>
+              <textarea name="address" class="form-control" rows="2">{{ customer.address or '' }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Area / Locality</label>
+              <input type="text" name="area" class="form-control" value="{{ customer.area or '' }}" placeholder="e.g. Banjara Hills" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">City</label>
+              <input type="text" name="city" class="form-control" value="{{ customer.city or '' }}" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">PIN Code</label>
+              <input type="text" name="pin" class="form-control" value="{{ customer.pin or '' }}" maxlength="6" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <select name="customer_status" class="form-select">
+                {% for s in ['Active','Inactive','Expired','Cancelled'] %}
+                <option value="{{ s }}" {% if customer.customer_status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-file-earmark-text-fill text-primary"></i> Rental Plan</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Plan Name <span class="text-danger">*</span></label>
+              <select name="plan_id" id="planSelect" class="form-select" required>
+                <option value="">Select plan</option>
+                {% for p in plans %}
+                <option value="{{ p.plan_id }}" data-days="{{ p.validity_in_days }}" data-cost="{{ p.cost }}" data-freq="{{ p.payment_frequency }}" {% if selected_plan_id == p.plan_id %}selected{% endif %}>
+                  {{ p.plan_name }}{% if not p.is_active %} (Inactive){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Validity</label>
+              <input type="text" id="planValidity" class="form-control" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Start Date <span class="text-danger">*</span></label>
+              <input type="date" name="plan_start_date" class="form-control" value="{{ customer.plan_start_date.isoformat() }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Plan Cost</label>
+              <input type="text" id="planCost" class="form-control" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Frequency</label>
+              <input type="text" id="planFrequency" class="form-control" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Deposit (₹)</label>
+              <input type="number" name="deposit" class="form-control" value="{{ customer.deposit }}" min="0" step="0.01" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Next Billing Date</label>
+              <input type="date" name="next_billing_date" class="form-control" value="{{ customer.next_billing_date.isoformat() if customer.next_billing_date else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Installed By</label>
+              <input type="text" name="installed_by" class="form-control" value="{{ customer.installed_by or '' }}" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-cpu-fill text-primary"></i> Machine Assignment</div>
+        <div class="card-body">
+          <label class="form-label">Assign Machine</label>
+          <select name="machine_id" class="form-select">
+            <option value="">— No machine —</option>
+            {% for m in machines %}
+            <option value="{{ m.machine_id }}" {% if customer.machine_id == m.machine_id %}selected{% endif %}>
+              {{ m.machine_serial_no }} – {{ m.model_name }} ({{ m.machine_status }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-sticky-fill text-primary"></i> Notes</div>
+        <div class="card-body">
+          <textarea name="notes" class="form-control" rows="5">{{ customer.notes or '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="d-flex gap-2 justify-content-end">
+        <a href="{{ url_for('customers.view', cust_id=customer.cust_id) }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+          <i class="bi bi-check-circle me-2"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+function updatePlanPreview() {
+  const selected = document.getElementById('planSelect')?.selectedOptions[0];
+  document.getElementById('planValidity').value = selected?.dataset.days ? `${selected.dataset.days} days` : '';
+  document.getElementById('planCost').value = selected?.dataset.cost ? `Rs ${selected.dataset.cost}` : '';
+  document.getElementById('planFrequency').value = selected?.dataset.freq || '';
+}
+document.getElementById('planSelect')?.addEventListener('change', updatePlanPreview);
+updatePlanPreview();
+</script>
+{% endblock %}

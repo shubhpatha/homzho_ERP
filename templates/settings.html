@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Settings – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-gear-fill text-primary"></i> System Settings</h1>
+    <p class="page-subtitle">Manage users and system data</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- User Management -->
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people-fill text-primary"></i> User Management</span>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+          <i class="bi bi-plus"></i> Add User
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Name / Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td><div class="fw-600">{{ u.full_name }}</div><small class="text-muted">@{{ u.username }}</small></td>
+              <td>{{ u.email }}</td>
+              <td><span class="badge badge-role-{{ u.role }} bg-dark">{{ u.role|capitalize }}</span></td>
+              <td>
+                {% if u.is_active %}
+                <span class="status-badge status-active">Active</span>
+                {% else %}
+                <span class="status-badge status-inactive">Disabled</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if current_user.user_id != u.user_id %}
+                <form method="POST" action="{{ url_for('settings.toggle_user', user_id=u.user_id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-sm btn-outline-{{ 'warning' if u.is_active else 'success' }}" title="{{ 'Disable' if u.is_active else 'Enable' }}">
+                    <i class="bi bi-{{ 'slash-circle' if u.is_active else 'check-circle' }}"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <!-- System / Database -->
+  <div class="col-12 col-lg-5">
+    <div class="card mb-4">
+      <div class="card-header"><i class="bi bi-database text-warning"></i> Database Backup</div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">Create a manual backup of the SQLite database. Automated backups require a cron job to call the API endpoint.</p>
+        <form method="POST" action="{{ url_for('settings.backup_db') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="btn btn-warning w-100"><i class="bi bi-cloud-download"></i> Create Manual Backup</button>
+        </form>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-columns-reverse text-info"></i> Activity Logs</div>
+      <div class="card-body p-0" style="max-height: 300px; overflow-y: auto;">
+        <ul class="list-group list-group-flush">
+          {% for log in activity_logs %}
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between w-100">
+              <strong class="small">{{ log.action }}</strong>
+              <small class="text-muted">{{ log.timestamp.strftime('%d %b %H:%M') }}</small>
+            </div>
+            <p class="mb-0 small text-muted">
+              {% if log.user %}{{ log.user.username }} - {% endif %}{{ log.details }}
+            </p>
+          </li>
+          {% else %}
+          <li class="list-group-item text-center text-muted">No activity logs.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('settings.add_user') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="modal-header">
+          <h5 class="modal-title">Add New User</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="full_name" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Username <span class="text-danger">*</span></label>
+            <input type="text" name="username" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email <span class="text-danger">*</span></label>
+            <input type="email" name="email" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Role <span class="text-danger">*</span></label>
+            <select name="role" class="form-select" required>
+              <option value="Operator">Operator</option>
+              <option value="Technician">Technician</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password <span class="text-danger">*</span></label>
+            <input type="password" name="password" class="form-control" required />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

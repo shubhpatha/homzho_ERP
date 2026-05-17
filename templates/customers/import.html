@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Import Customers – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('customers.index') }}">Customers</a></li>
+      <li class="breadcrumb-item active">Import CSV</li>
+    </ol></nav>
+    <h1 class="page-title">Import Customers from CSV</h1>
+  </div>
+  <a href="{{ url_for('customers.import_template') }}" class="btn btn-outline-success">
+    <i class="bi bi-download"></i> Download Template
+  </a>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-md-7">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-upload text-primary"></i> Upload CSV File</div>
+      <div class="card-body">
+        <div class="info-box info-box-info mb-3">
+          <i class="bi bi-info-circle-fill"></i>
+          <div>All rows are validated before insert. If any row fails, the entire import is aborted. Download the template for the correct column format.</div>
+        </div>
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('customers.import_csv') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="mb-3">
+            <label class="form-label">Select CSV File</label>
+            <input type="file" name="csv_file" class="form-control" accept=".csv" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg w-100">
+            <i class="bi bi-cloud-upload me-2"></i> Import Customers
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-5">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-check text-success"></i> Required Columns</div>
+      <div class="card-body">
+        <ul class="mb-0 small">
+          <li><code>cust_name</code> – Full name</li>
+          <li><code>contact_number</code> – Unique 10-digit phone</li>
+          <li><code>plan_name</code> – Plan description</li>
+          <li><code>plan_start_date</code> – Format: YYYY-MM-DD</li>
+          <li><code>monthly_rent</code> – Numeric amount</li>
+        </ul>
+        <hr />
+        <p class="small text-muted mb-0">Optional: email_id, plan_duration_months, payment_freq, deposit, address, city, pin, notes</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if errors %}
+<div class="card mt-3 border-danger">
+  <div class="card-header bg-danger text-white"><i class="bi bi-x-circle-fill"></i> Import Failed – {{ errors | length }} Error(s)</div>
+  <div class="card-body" style="max-height:400px;overflow-y:auto">
+    <ul class="mb-0 small">
+      {% for e in errors %}
+      <li class="text-danger">{{ e }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

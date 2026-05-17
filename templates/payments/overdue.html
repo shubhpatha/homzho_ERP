@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Overdue Payments – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('payments.index') }}">Payments</a></li>
+      <li class="breadcrumb-item active">Overdue</li>
+    </ol></nav>
+    <h1 class="page-title text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Overdue Collections</h1>
+    <p class="page-subtitle">{{ customers|length }} customers with overdue payments</p>
+  </div>
+</div>
+
+<div class="table-card mt-4">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Customer Name</th>
+          <th>Contact</th>
+          <th>Plan & Rent</th>
+          <th>Due Date</th>
+          <th>Days Overdue</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        {% set days = (today - c.next_billing_date).days if c.next_billing_date else 0 %}
+        <tr>
+          <td>
+            <a href="{{ url_for('customers.view', cust_id=c.cust_id) }}" class="fw-600 text-decoration-none">
+              {{ c.cust_name }}
+            </a>
+            {% if c.machine_serial_no %}<br><small class="text-muted"><i class="bi bi-cpu"></i> {{ c.machine_serial_no }}</small>{% endif %}
+          </td>
+          <td>
+            {{ c.contact_number }}
+            {% if c.city %}<br><small class="text-muted">{{ c.city }}</small>{% endif %}
+          </td>
+          <td>
+            {{ c.plan_name }}<br>
+            <span class="fw-600">₹{{ '{:,.0f}'.format(c.monthly_rent) }}</span> <small class="text-muted">/ {{ c.payment_freq }}</small>
+          </td>
+          <td class="text-danger fw-600">
+            {{ c.next_billing_date.strftime('%d %b %Y') if c.next_billing_date else 'Unknown' }}
+          </td>
+          <td>
+            <span class="status-badge status-overdue">{{ days }} days</span>
+          </td>
+          <td>
+            <a href="{{ url_for('payments.add') }}?customer_id={{ c.cust_id }}" class="btn btn-sm btn-success">
+              <i class="bi bi-cash"></i> Record Payment
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-muted py-5">
+            <i class="bi bi-emoji-smile fs-2 d-block mb-2 text-success"></i>
+            No overdue payments! Excellent collection record.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+"""
+models/maintenance.py - Machine maintenance/service records.
+"""
+from datetime import datetime, timedelta
+from extensions import db
+
+
+class Maintenance(db.Model):
+    """Service/maintenance record for a machine."""
+    __tablename__ = 'maintenance'
+
+    service_id = db.Column(db.Integer, primary_key=True)
+    machine_id = db.Column(db.Integer, db.ForeignKey('machines.machine_id'), nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.cust_id'), nullable=True)
+    service_date = db.Column(db.Date, nullable=False, index=True)
+    next_service_date = db.Column(db.Date, nullable=True)   # Auto: service_date + 90 days
+    service_type = db.Column(db.String(80), nullable=False)  # Routine, Filter Change, Repair, etc.
+    parts_replaced = db.Column(db.Text)
+    filter_changed = db.Column(db.Boolean, default=False)
+    technician_name = db.Column(db.String(100))
+    water_tds = db.Column(db.Float, nullable=True)
+    main_exp = db.Column(db.Float, default=0.0)    # Maintenance expense
+    travel_exp = db.Column(db.Float, default=0.0)  # Travel expense
+    customer_feedback = db.Column(db.String(30))   # Excellent, Good, Average, Poor
+    remark = db.Column(db.Text)
+    image_path = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Customer relationship (optional, for display)
+    customer = db.relationship('Customer', backref='maintenance_records',
+                                foreign_keys=[customer_id])
+
+    def set_next_service_date(self):
+        """Auto-calculate next service date = service_date + 90 days."""
+        if self.service_date:
+            self.next_service_date = self.service_date + timedelta(days=90)
+
+    def __repr__(self):
+        return f'<Maintenance Machine#{self.machine_id} on {self.service_date}>'

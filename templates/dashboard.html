@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Homzho ERP{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Welcome back, {{ current_user.full_name or current_user.username }}! Here's what's happening today.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('customers.add') }}" class="btn btn-primary">
+      <i class="bi bi-person-plus-fill"></i> Add Customer
+    </a>
+    <a href="{{ url_for('payments.add') }}" class="btn btn-success">
+      <i class="bi bi-cash-coin"></i> Record Payment
+    </a>
+  </div>
+</div>
+
+<!-- ── KPI Stat Cards ── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4 col-xl-3">
+    <a href="{{ url_for('customers.index') }}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+        <div>
+          <div class="stat-value" id="kpi-total-customers">{{ stats.total_customers }}</div>
+          <div class="stat-label">Total Customers</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <a href="{{ url_for('customers.index') }}?status=Active" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon green"><i class="bi bi-person-check-fill"></i></div>
+        <div>
+          <div class="stat-value" id="kpi-active-customers">{{ stats.active_customers }}</div>
+          <div class="stat-label">Active Customers</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <a href="{{ url_for('machines.index') }}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon teal"><i class="bi bi-cpu-fill"></i></div>
+        <div>
+          <div class="stat-value" id="kpi-total-machines">{{ stats.total_machines }}</div>
+          <div class="stat-label">Total Machines</div>
+          <div class="stat-change">{{ stats.available_machines }} available</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <a href="{{ url_for('payments.overdue') }}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon red"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        <div>
+          <div class="stat-value" id="kpi-overdue">{{ stats.overdue_billing }}</div>
+          <div class="stat-label">Overdue Bills</div>
+          <div class="stat-change down">{{ stats.pending_billing }} pending</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <a href="{{ url_for('maintenance.due') }}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon orange"><i class="bi bi-tools"></i></div>
+        <div>
+          <div class="stat-value" id="kpi-maintenance">{{ stats.upcoming_maintenance }}</div>
+          <div class="stat-label">Maintenance Due</div>
+          <div class="stat-change">Next 30 days</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon purple"><i class="bi bi-graph-up-arrow"></i></div>
+      <div>
+        <div class="stat-value" id="kpi-revenue">₹{{ '{:,.0f}'.format(stats.monthly_revenue) }}</div>
+        <div class="stat-label">Monthly Revenue</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-wallet2"></i></div>
+      <div>
+        <div class="stat-value">₹{{ '{:,.0f}'.format(stats.monthly_expenses) }}</div>
+        <div class="stat-label">Monthly Expenses</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="bi bi-piggy-bank-fill"></i></div>
+      <div>
+        <div class="stat-value">₹{{ '{:,.0f}'.format(stats.monthly_revenue - stats.monthly_expenses) }}</div>
+        <div class="stat-label">Net Profit</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Charts ── -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-bar-chart-fill text-primary"></i>
+        Revenue vs Expenses (Last 6 Months)
+      </div>
+      <div class="card-body">
+        <canvas id="revenueChart" height="80"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-pie-chart-fill text-primary"></i>
+        Machine Status
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="machineChart" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tables: Recent Payments & Overdue ── -->
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="table-card">
+      <div class="table-toolbar">
+        <span class="table-title"><i class="bi bi-cash-coin text-success me-2"></i>Recent Payments</span>
+        <a href="{{ url_for('payments.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Invoice</th>
+              <th>Customer</th>
+              <th>Amount</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in recent_payments %}
+            <tr>
+              <td><a href="{{ url_for('payments.view', payment_id=p.payment_id) }}" class="fw-600 text-primary">{{ p.invoice_no }}</a></td>
+              <td>{{ p.customer.cust_name if p.customer else '—' }}</td>
+              <td class="fw-600 text-success">₹{{ '{:,.0f}'.format(p.amount_paid) }}</td>
+              <td class="text-muted">{{ p.payment_date.strftime('%d %b') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-3">No payments recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="table-card">
+      <div class="table-toolbar">
+        <span class="table-title"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Overdue Billing</span>
+        <a href="{{ url_for('payments.overdue') }}" class="btn btn-sm btn-outline-danger">View All</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Due Date</th>
+              <th>Days Overdue</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in overdue_customers %}
+            {% set days = (today - c.next_billing_date).days if c.next_billing_date else 0 %}
+            <tr>
+              <td><a href="{{ url_for('customers.view', cust_id=c.cust_id) }}" class="fw-600">{{ c.cust_name }}</a></td>
+              <td class="text-muted">{{ c.next_billing_date.strftime('%d %b %Y') if c.next_billing_date else '—' }}</td>
+              <td><span class="status-badge status-overdue">{{ days }}d</span></td>
+              <td>
+                <a href="{{ url_for('payments.add') }}?customer_id={{ c.cust_id }}" class="btn btn-sm btn-success">
+                  <i class="bi bi-cash"></i> Pay
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-3">No overdue customers. 🎉</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Revenue Chart ──
+const collections = {{ monthly_collections | safe }};
+const expenses    = {{ monthly_expenses | safe }};
+
+const ctx = document.getElementById('revenueChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: collections.map(d => d.month),
+    datasets: [
+      {
+        label: 'Revenue ₹',
+        data: collections.map(d => d.total),
+        backgroundColor: 'rgba(26,115,232,0.8)',
+        borderRadius: 6,
+      },
+      {
+        label: 'Expenses ₹',
+        data: expenses.map(d => d.total),
+        backgroundColor: 'rgba(229,57,53,0.6)',
+        borderRadius: 6,
+      },
+    ],
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: {
+        callbacks: {
+          label: ctx => `₹${ctx.parsed.y.toLocaleString('en-IN')}`,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { callback: v => '₹' + v.toLocaleString('en-IN') },
+        grid: { color: 'rgba(0,0,0,.05)' },
+      },
+      x: { grid: { display: false } },
+    },
+  },
+});
+
+// ── Machine Doughnut ──
+const mCtx = document.getElementById('machineChart').getContext('2d');
+new Chart(mCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Available', 'Installed', 'Maintenance', 'Scrapped'],
+    datasets: [{
+      data: [
+        {{ stats.available_machines }},
+        {{ stats.total_machines - stats.available_machines }},
+        0, 0
+      ],
+      backgroundColor: ['#43a047','#1a73e8','#fb8c00','#9e9e9e'],
+      borderWidth: 2,
+      borderColor: 'transparent',
+      hoverOffset: 6,
+    }],
+  },
+  options: {
+    responsive: true,
+    cutout: '65%',
+    plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } } },
+  },
+});
+</script>
+{% endblock %}

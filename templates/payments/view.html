@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ payment.invoice_no }} – Homzho ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+  .invoice-card { max-width: 800px; margin: 0 auto; background: #fff; color: #000; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+  .invoice-header { background: #1a73e8; color: #fff; padding: 30px 40px; display: flex; justify-content: space-between; align-items: center; }
+  .invoice-brand { font-size: 28px; font-weight: 700; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; }
+  .invoice-title { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.9; text-align: right; }
+  .invoice-body { padding: 40px; }
+  .invoice-meta { display: flex; justify-content: space-between; margin-bottom: 40px; }
+  .invoice-meta-block h6 { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .invoice-meta-block p { font-size: 15px; font-weight: 600; margin: 0; color: #1e293b; }
+  .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+  .invoice-table th { border-bottom: 2px solid #e2e8f0; padding: 12px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase; }
+  .invoice-table td { border-bottom: 1px solid #e2e8f0; padding: 16px 12px; font-size: 14px; color: #1e293b; }
+  .invoice-table th.text-end, .invoice-table td.text-end { text-align: right; }
+  .invoice-total { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+  .invoice-total-box { width: 250px; background: #f8fafd; border-radius: 8px; padding: 20px; }
+  .invoice-total-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px; color: #64748b; }
+  .invoice-total-row.final { font-size: 20px; font-weight: 700; color: #1a73e8; margin-bottom: 0; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+  .invoice-footer { text-align: center; font-size: 12px; color: #64748b; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+  
+  @media print {
+    body * { visibility: hidden; }
+    .invoice-card, .invoice-card * { visibility: visible; }
+    .invoice-card { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; margin: 0; }
+    .page-header, .sidebar, .topbar, .flash-container { display: none !important; }
+    .main-wrapper { margin-left: 0; padding: 0; }
+    body { background: #fff; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('payments.index') }}">Payments</a></li>
+      <li class="breadcrumb-item active">{{ payment.invoice_no }}</li>
+    </ol></nav>
+    <h1 class="page-title">Invoice #{{ payment.invoice_no }}</h1>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-outline-secondary" onclick="window.print()">
+      <i class="bi bi-printer"></i> Print Invoice
+    </button>
+    <a href="{{ url_for('customers.view', cust_id=payment.customer_id) }}" class="btn btn-outline-primary">
+      <i class="bi bi-person"></i> View Customer
+    </a>
+  </div>
+</div>
+
+<div class="invoice-card">
+  <div class="invoice-header">
+    <div class="invoice-brand">
+      <i class="bi bi-droplet-fill"></i> Homzho
+    </div>
+    <div class="invoice-title">
+      <div style="font-size: 24px; font-weight: 600; letter-spacing: 0;">INVOICE</div>
+      <div>{{ payment.invoice_no }}</div>
+    </div>
+  </div>
+  
+  <div class="invoice-body">
+    <div class="invoice-meta">
+      <div class="invoice-meta-block">
+        <h6>Billed To</h6>
+        <p>{{ payment.customer.cust_name if payment.customer else 'Unknown Customer' }}</p>
+        <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+          {{ payment.customer.address or '' }}<br>
+          {{ payment.customer.city or '' }} {{ payment.customer.pin or '' }}<br>
+          Ph: {{ payment.customer.contact_number if payment.customer else '' }}
+        </div>
+      </div>
+      <div class="invoice-meta-block text-end">
+        <h6>Payment Details</h6>
+        <div style="font-size: 13px; color: #1e293b; margin-top: 4px;">
+          <div style="margin-bottom: 4px;"><strong>Date:</strong> {{ payment.payment_date.strftime('%d %b %Y') }}</div>
+          <div style="margin-bottom: 4px;"><strong>Mode:</strong> {{ payment.payment_mode }}</div>
+          {% if payment.transaction_id %}
+          <div style="margin-bottom: 4px;"><strong>Ref:</strong> {{ payment.transaction_id }}</div>
+          {% endif %}
+          <div style="margin-bottom: 4px;">
+            <strong>Status:</strong> 
+            <span style="color: {% if payment.payment_status == 'Paid' %}#43a047{% else %}#fb8c00{% endif %}">
+              {{ payment.payment_status }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th class="text-end">Amount Due</th>
+          <th class="text-end">Amount Paid</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div style="font-weight: 600;">Water Purifier Rental Services</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+              {% if payment.customer %}
+              Plan: {{ payment.customer.plan_name }} ({{ payment.customer.payment_freq }})<br>
+              Machine S/N: {{ payment.customer.machine_serial_no or 'N/A' }}
+              {% endif %}
+              {% if payment.remark %}
+              <br>Notes: {{ payment.remark }}
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-end">₹{{ '{:,.2f}'.format(payment.amount_due) }}</td>
+          <td class="text-end fw-600">₹{{ '{:,.2f}'.format(payment.amount_paid) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="invoice-total">
+      <div class="invoice-total-box">
+        <div class="invoice-total-row">
+          <span>Amount Due</span>
+          <span>₹{{ '{:,.2f}'.format(payment.amount_due) }}</span>
+        </div>
+        <div class="invoice-total-row">
+          <span>Amount Paid</span>
+          <span style="color: #43a047;">-₹{{ '{:,.2f}'.format(payment.amount_paid) }}</span>
+        </div>
+        <div class="invoice-total-row final">
+          <span>Balance</span>
+          <span style="color: {% if payment.amount_due - payment.amount_paid > 0 %}#e53935{% else %}#1a73e8{% endif %};">
+            ₹{{ '{:,.2f}'.format([(payment.amount_due - payment.amount_paid), 0]|max) }}
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="invoice-footer">
+      <p>Thank you for choosing Homzho Water Purifiers!</p>
+      <p style="margin-top: 4px;">This is a computer generated invoice and does not require a signature.</p>
+      {% if payment.collected_by %}
+      <p style="margin-top: 4px;">Collected by: {{ payment.collected_by }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

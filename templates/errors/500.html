@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}500 Internal Server Error - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="container text-center mt-5">
+  <h1 class="display-1 text-danger"><i class="bi bi-exclamation-triangle"></i></h1>
+  <h2 class="mt-3">500 - Internal Server Error</h2>
+  <p class="lead mt-3">An unexpected error occurred. Our team has been notified.</p>
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary mt-4">Return to Dashboard</a>
+</div>
+{% endblock %}

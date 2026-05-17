@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ machine.machine_serial_no }} - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('machines.index') }}">Machines</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('machines.view', machine_id=machine.machine_id) }}">{{ machine.machine_serial_no }}</a></li>
+      <li class="breadcrumb-item active">Edit</li>
+    </ol></nav>
+    <h1 class="page-title">Edit Machine</h1>
+    <p class="page-subtitle">{{ machine.machine_serial_no }} - {{ machine.model_name }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('machines.view', machine_id=machine.machine_id) }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-pencil-square text-primary"></i> Machine Details</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('machines.edit', machine_id=machine.machine_id) }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Serial Number <span class="text-danger">*</span></label>
+              <input type="text" name="machine_serial_no" class="form-control" value="{{ machine.machine_serial_no }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Model Name <span class="text-danger">*</span></label>
+              <input type="text" name="model_name" class="form-control" value="{{ machine.model_name }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <select name="machine_status" class="form-select">
+                {% for s in statuses %}
+                <option value="{{ s }}" {% if machine.machine_status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Condition</label>
+              <select name="machine_condition" class="form-select">
+                {% for c in conditions %}
+                <option value="{{ c }}" {% if machine.machine_condition == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Base TDS Level (optional)</label>
+              <input type="number" name="tds_level" class="form-control" value="{{ machine.tds_level or '' }}" step="1" min="0" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Installation Date</label>
+              <input type="date" name="installation_date" class="form-control" value="{{ machine.installation_date.isoformat() if machine.installation_date else '' }}" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remarks" class="form-control" rows="3">{{ machine.remarks or '' }}</textarea>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2 mt-4">
+              <a href="{{ url_for('machines.view', machine_id=machine.machine_id) }}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Update Machine</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

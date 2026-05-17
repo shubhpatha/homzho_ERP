@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Add Machine – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('machines.index') }}">Machines</a></li>
+      <li class="breadcrumb-item active">Add Machine</li>
+    </ol></nav>
+    <h1 class="page-title">Add New Machine</h1>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-cpu text-primary"></i> Machine Details</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('machines.add') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Serial Number <span class="text-danger">*</span></label>
+              <input type="text" name="machine_serial_no" class="form-control" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Model Name <span class="text-danger">*</span></label>
+              <input type="text" name="model_name" class="form-control" placeholder="e.g. RO+UV Smart" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <select name="machine_status" class="form-select">
+                {% for s in statuses %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Condition</label>
+              <select name="machine_condition" class="form-select">
+                {% for c in conditions %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Base TDS Level (optional)</label>
+              <input type="number" name="tds_level" class="form-control" placeholder="e.g. 50" step="1" min="0" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remarks" class="form-control" rows="3" placeholder="Any notes…"></textarea>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2 mt-4">
+              <a href="{{ url_for('machines.index') }}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Machine</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

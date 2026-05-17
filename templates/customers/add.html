@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}Add Customer – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('customers.index') }}">Customers</a></li>
+      <li class="breadcrumb-item active">Add Customer</li>
+    </ol></nav>
+    <h1 class="page-title">Add New Customer</h1>
+  </div>
+</div>
+
+{# Show top-level error summary if any #}
+{% if errors %}
+<div class="alert alert-danger d-flex align-items-center mb-3">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <span>Please fix the <strong>{{ errors | length }}</strong> error(s) below before saving.</span>
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('customers.add') }}" novalidate id="addCustomerForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <div class="row g-3">
+
+    <!-- Customer Info -->
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-person-fill text-primary"></i> Customer Information</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="cust_name" id="cust_name"
+                     class="form-control {% if errors.cust_name %}is-invalid{% endif %}"
+                     placeholder="e.g. Rajesh Kumar"
+                     value="{{ form_data.get('cust_name', '') }}" />
+              {% if errors.cust_name %}
+              <div class="invalid-feedback">{{ errors.cust_name }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+              <input type="tel" name="contact_number" id="contact_number"
+                     class="form-control {% if errors.contact_number %}is-invalid{% endif %}"
+                     placeholder="10-digit mobile"
+                     value="{{ form_data.get('contact_number', '') }}"
+                     maxlength="15" />
+              {% if errors.contact_number %}
+              <div class="invalid-feedback">{{ errors.contact_number }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email (optional)</label>
+              <input type="email" name="email_id"
+                     class="form-control {% if errors.email_id %}is-invalid{% endif %}"
+                     placeholder="customer@email.com"
+                     value="{{ form_data.get('email_id', '') }}" />
+              {% if errors.email_id %}
+              <div class="invalid-feedback">{{ errors.email_id }}</div>
+              {% endif %}
+            </div>
+            <div class="col-12">
+              <label class="form-label">Address</label>
+              <textarea name="address" class="form-control" rows="2"
+                        placeholder="Full address">{{ form_data.get('address', '') }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Area / Locality</label>
+              <input type="text" name="area" class="form-control"
+                     placeholder="e.g. Banjara Hills"
+                     value="{{ form_data.get('area', '') }}" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">City</label>
+              <input type="text" name="city" class="form-control"
+                     placeholder="City"
+                     value="{{ form_data.get('city', '') }}" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">PIN Code</label>
+              <input type="text" name="pin"
+                     class="form-control {% if errors.pin %}is-invalid{% endif %}"
+                     placeholder="6-digit PIN" maxlength="6"
+                     value="{{ form_data.get('pin', '') }}" />
+              {% if errors.pin %}
+              <div class="invalid-feedback">{{ errors.pin }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plan Info -->
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-file-earmark-text-fill text-primary"></i> Rental Plan</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Plan Name <span class="text-danger">*</span></label>
+              <select name="plan_id" id="planSelect"
+                      class="form-select {% if errors.plan_id %}is-invalid{% endif %}">
+                <option value="">Select plan</option>
+                {% for p in plans %}
+                <option value="{{ p.plan_id }}"
+                        data-days="{{ p.validity_in_days }}"
+                        data-cost="{{ p.cost }}"
+                        data-freq="{{ p.payment_frequency }}"
+                        {% if form_data.get('plan_id') == p.plan_id|string %}selected
+                        {% elif not form_data and loop.first %}selected{% endif %}>
+                  {{ p.plan_name }}
+                </option>
+                {% endfor %}
+              </select>
+              {% if errors.plan_id %}
+              <div class="invalid-feedback">{{ errors.plan_id }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Validity</label>
+              <input type="text" id="planValidity" class="form-control" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Plan Start Date <span class="text-danger">*</span></label>
+              <input type="date" name="plan_start_date"
+                     class="form-control {% if errors.plan_start_date %}is-invalid{% endif %}"
+                     value="{{ form_data.get('plan_start_date', today.isoformat()) }}" />
+              {% if errors.plan_start_date %}
+              <div class="invalid-feedback">{{ errors.plan_start_date }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Plan Cost</label>
+              <input type="text" id="planCost" class="form-control" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Frequency</label>
+              <input type="text" id="planFrequency" class="form-control" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Deposit (₹)</label>
+              <input type="number" name="deposit" class="form-control"
+                     placeholder="0" min="0" step="0.01"
+                     value="{{ form_data.get('deposit', '') }}" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Machine Assignment -->
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-cpu-fill text-primary"></i> Machine Assignment</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Assign Machine (optional)</label>
+              <select name="machine_id" class="form-select">
+                <option value="">— No machine yet —</option>
+                {% for m in machines %}
+                <option value="{{ m.machine_id }}"
+                        {% if form_data.get('machine_id') == m.machine_id|string %}selected{% endif %}>
+                  {{ m.machine_serial_no }} – {{ m.model_name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Installation Date</label>
+              <input type="date" name="installation_date" class="form-control"
+                     value="{{ form_data.get('installation_date', today.isoformat()) }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Installation Cost (₹)</label>
+              <input type="number" name="installation_cost" class="form-control"
+                     placeholder="0" min="0" step="0.01"
+                     value="{{ form_data.get('installation_cost', '') }}" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Installed By</label>
+              <input type="text" name="installed_by" class="form-control"
+                     placeholder="Technician name"
+                     value="{{ form_data.get('installed_by', '') }}" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-sticky-fill text-primary"></i> Notes</div>
+        <div class="card-body">
+          <textarea name="notes" class="form-control" rows="8"
+                    placeholder="Any additional notes about this customer…">{{ form_data.get('notes', '') }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="col-12">
+      <div class="d-flex gap-2 justify-content-end">
+        <a href="{{ url_for('customers.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+          <i class="bi bi-person-check-fill me-2"></i> Save Customer
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+/* ── Plan preview ──────────────────────────────────────────── */
+function updatePlanPreview() {
+  const sel = document.getElementById('planSelect')?.selectedOptions[0];
+  document.getElementById('planValidity').value  = sel?.dataset.days ? `${sel.dataset.days} days` : '';
+  document.getElementById('planCost').value      = sel?.dataset.cost ? `₹ ${sel.dataset.cost}` : '';
+  document.getElementById('planFrequency').value = sel?.dataset.freq || '';
+}
+document.getElementById('planSelect')?.addEventListener('change', updatePlanPreview);
+updatePlanPreview();
+
+/* ── Client-side validation (runs before form submits) ──────── */
+document.getElementById('addCustomerForm').addEventListener('submit', function(e) {
+  let valid = true;
+
+  function markField(id, message) {
+    const el = document.getElementById(id) || document.querySelector(`[name="${id}"]`);
+    if (!el) return;
+    el.classList.add('is-invalid');
+    let fb = el.nextElementSibling;
+    if (!fb || !fb.classList.contains('invalid-feedback')) {
+      fb = document.createElement('div');
+      fb.className = 'invalid-feedback';
+      el.parentNode.insertBefore(fb, el.nextSibling);
+    }
+    fb.textContent = message;
+    valid = false;
+  }
+
+  function clearField(id) {
+    const el = document.getElementById(id) || document.querySelector(`[name="${id}"]`);
+    if (!el) return;
+    el.classList.remove('is-invalid');
+    const fb = el.nextElementSibling;
+    if (fb && fb.classList.contains('invalid-feedback')) fb.textContent = '';
+  }
+
+  // Full Name
+  const name = document.getElementById('cust_name');
+  if (!name.value.trim()) {
+    markField('cust_name', 'Full name is required.');
+  } else { clearField('cust_name'); }
+
+  // Contact Number
+  const contact = document.getElementById('contact_number');
+  if (!contact.value.trim()) {
+    markField('contact_number', 'Contact number is required.');
+  } else if (!/^\d{10,15}$/.test(contact.value.trim())) {
+    markField('contact_number', 'Enter a valid 10–15 digit mobile number.');
+  } else { clearField('contact_number'); }
+
+  // Plan
+  const plan = document.getElementById('planSelect');
+  if (!plan.value) {
+    markField('plan_id', 'Please select a rental plan.');
+    plan.classList.add('is-invalid');
+    valid = false;
+  } else { plan.classList.remove('is-invalid'); }
+
+  // Plan Start Date
+  const startDate = document.querySelector('[name="plan_start_date"]');
+  if (!startDate.value) {
+    startDate.classList.add('is-invalid');
+    let fb = startDate.nextElementSibling;
+    if (!fb || !fb.classList.contains('invalid-feedback')) {
+      fb = document.createElement('div');
+      fb.className = 'invalid-feedback';
+      startDate.parentNode.insertBefore(fb, startDate.nextSibling);
+    }
+    fb.textContent = 'Plan start date is required.';
+    valid = false;
+  } else { startDate.classList.remove('is-invalid'); }
+
+  // PIN (optional but must be 6 digits if provided)
+  const pin = document.querySelector('[name="pin"]');
+  if (pin.value.trim() && !/^\d{6}$/.test(pin.value.trim())) {
+    markField('pin', 'PIN must be exactly 6 digits.');
+  } else { clearField('pin'); }
+
+  if (!valid) {
+    e.preventDefault();
+    // Scroll to first error
+    document.querySelector('.is-invalid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
+
+/* Clear red outline when user starts typing */
+document.querySelectorAll('.form-control, .form-select').forEach(el => {
+  el.addEventListener('input', () => {
+    if (el.value.trim()) {
+      el.classList.remove('is-invalid');
+    }
+  });
+});
+</script>
+{% endblock %}

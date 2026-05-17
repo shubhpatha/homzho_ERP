@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Uploads for {{ customer.cust_name }} – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('customers.index') }}">Customers</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('customers.view', cust_id=customer.cust_id) }}">{{ customer.cust_name }}</a></li>
+      <li class="breadcrumb-item active">Uploads</li>
+    </ol></nav>
+    <h1 class="page-title"><i class="bi bi-cloud-arrow-up text-primary"></i> Upload Files</h1>
+    <p class="page-subtitle">Upload documents for {{ customer.cust_name }}</p>
+  </div>
+  <a href="{{ url_for('customers.view', cust_id=customer.cust_id) }}" class="btn btn-outline-secondary">Back to Profile</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-md-5">
+    <div class="card">
+      <div class="card-header bg-primary text-white"><i class="bi bi-upload"></i> Select Files</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('uploads.upload_for_customer', cust_id=customer.cust_id) }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          
+          <div class="mb-3">
+            <label class="form-label">Document Type <span class="text-danger">*</span></label>
+            <select name="upload_type" class="form-select" required>
+              {% for t in upload_types %}
+              <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Select Files <span class="text-danger">*</span></label>
+            <input type="file" name="files" id="files" class="form-control" multiple accept="image/*,.pdf" required />
+            <small class="text-muted mt-1 d-block">Max 10 files per upload. Up to 5 MB each. PNG, JPG, PDF.</small>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Remarks</label>
+            <input type="text" name="remarks" class="form-control" placeholder="Optional description" />
+          </div>
+          
+          <div id="filePreviewContainer" class="upload-grid mb-3"></div>
+          
+          <button type="submit" class="btn btn-primary w-100 btn-lg"><i class="bi bi-cloud-arrow-up-fill me-2"></i> Upload Files</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-12 col-md-7">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-folder text-warning"></i> Recent Uploads</div>
+      <div class="card-body" style="max-height:600px; overflow-y:auto">
+        {% if uploads %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead><tr><th>Type</th><th>File</th><th>Date</th><th>By</th><th></th></tr></thead>
+            <tbody>
+              {% for u in uploads %}
+              <tr>
+                <td><span class="badge bg-secondary">{{ u.upload_type }}</span></td>
+                <td>
+                  <a href="{{ url_for('static', filename=u.file_path) }}" target="_blank" class="text-decoration-none d-flex align-items-center gap-2">
+                    {% if u.file_path.endswith('.pdf') %}
+                    <i class="bi bi-file-pdf text-danger fs-4"></i>
+                    {% else %}
+                    <img src="{{ url_for('static', filename=u.file_path) }}" class="rounded" width="32" height="32" style="object-fit:cover" />
+                    {% endif %}
+                    <div style="max-width:150px" class="text-truncate" title="{{ u.file_name }}">{{ u.file_name }}</div>
+                  </a>
+                </td>
+                <td>{{ u.uploaded_at.strftime('%d %b %H:%M') }}</td>
+                <td><small>{{ u.uploaded_by }}</small></td>
+                <td class="text-end">
+                  {% if current_user.is_admin() %}
+                  <form method="POST" action="{{ url_for('uploads.delete_upload', upload_id=u.upload_id) }}" class="d-inline" onsubmit="return confirm('Delete this file permanently?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button class="btn btn-sm btn-icon btn-outline-danger"><i class="bi bi-trash"></i></button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-5">No files uploaded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

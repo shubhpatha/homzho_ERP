@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Record Payment – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('payments.index') }}">Payments</a></li>
+      <li class="breadcrumb-item active">Record Payment</li>
+    </ol></nav>
+    <h1 class="page-title">Record Payment</h1>
+  </div>
+</div>
+
+<div class="row g-3 justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-cash-coin text-success"></i> Payment Details</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('payments.add') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="row g-3">
+
+            <div class="col-12">
+              <label class="form-label">Customer <span class="text-danger">*</span></label>
+              <select name="customer_id" id="customer_id" class="form-select" required>
+                <option value="">— Select Customer —</option>
+                {% for c in customers %}
+                <option value="{{ c.cust_id }}"
+                  {% if prefill_customer_id == c.cust_id %}selected{% endif %}>
+                  {{ c.cust_name }} ({{ c.contact_number }})
+                </option>
+                {% endfor %}
+              </select>
+              <small id="next_billing_date_hint" class="text-muted mt-1 d-block"></small>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Payment Date <span class="text-danger">*</span></label>
+              <input type="date" name="payment_date" class="form-control" value="{{ payment_date_default }}" required />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Payment Mode <span class="text-danger">*</span></label>
+              <select name="payment_mode" class="form-select" required>
+                {% for m in payment_modes %}
+                <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Amount Due (₹)</label>
+              <input type="number" name="amount_due" id="amount_due" class="form-control" placeholder="Auto-filled from customer" min="0" step="0.01" />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Amount Paid (₹) <span class="text-danger">*</span></label>
+              <input type="number" name="amount_paid" class="form-control" placeholder="e.g. 500" min="0" step="0.01" required />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Transaction ID / Reference</label>
+              <input type="text" name="transaction_id" class="form-control" placeholder="UPI ref / cheque no (optional)" />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Collected By</label>
+              <input type="text" name="collected_by" class="form-control"
+                     value="{{ current_user.full_name or current_user.username }}" />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remark" class="form-control" rows="2" placeholder="Any notes about this payment…"></textarea>
+            </div>
+
+            <div class="col-12">
+              <div class="d-flex gap-2 justify-content-end mt-2">
+                <a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                <button type="submit" class="btn btn-success btn-lg">
+                  <i class="bi bi-check-circle-fill me-2"></i> Record Payment
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
