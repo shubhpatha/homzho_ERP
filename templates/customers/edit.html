@@ -101,11 +101,8 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Next Billing Date</label>
-              <input type="date" name="next_billing_date" class="form-control" value="{{ customer.next_billing_date.isoformat() if customer.next_billing_date else '' }}" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Installed By</label>
-              <input type="text" name="installed_by" class="form-control" value="{{ customer.installed_by or '' }}" />
+              <input type="date" name="next_billing_date" class="form-control bg-light" value="{{ customer.next_billing_date.isoformat() if customer.next_billing_date else '' }}" readonly />
+              <small class="text-muted d-block mt-1"><i class="bi bi-info-circle"></i> Auto-calculates on save</small>
             </div>
           </div>
         </div>
@@ -116,15 +113,31 @@
       <div class="card">
         <div class="card-header"><i class="bi bi-cpu-fill text-primary"></i> Machine Assignment</div>
         <div class="card-body">
-          <label class="form-label">Assign Machine</label>
-          <select name="machine_id" class="form-select">
-            <option value="">— No machine —</option>
-            {% for m in machines %}
-            <option value="{{ m.machine_id }}" {% if customer.machine_id == m.machine_id %}selected{% endif %}>
-              {{ m.machine_serial_no }} – {{ m.model_name }} ({{ m.machine_status }})
-            </option>
-            {% endfor %}
-          </select>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Assign Machine</label>
+              <select name="machine_id" class="form-select">
+                <option value="">— No machine —</option>
+                {% for m in machines %}
+                <option value="{{ m.machine_id }}" {% if customer.machine_id == m.machine_id %}selected{% endif %}>
+                  {{ m.machine_serial_no }} – {{ m.model_name }} ({{ m.machine_status }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Installation Date</label>
+              <input type="date" name="installation_date" class="form-control" value="{{ customer.installation_date.isoformat() if customer.installation_date else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Installation Cost (₹)</label>
+              <input type="number" name="installation_cost" class="form-control" value="{{ customer.installation_cost or 0 }}" min="0" step="0.01" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Installed By</label>
+              <input type="text" name="installed_by" class="form-control" value="{{ customer.installed_by or '' }}" placeholder="Technician name" />
+            </div>
+          </div>
         </div>
       </div>
     </div>

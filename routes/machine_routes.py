@@ -149,7 +149,8 @@ def edit(machine_id):
 
             machine.machine_serial_no = serial_no
             machine.model_name = request.form['model_name'].strip()
-            machine.machine_status = request.form.get('machine_status', machine.machine_status)
+            new_status = request.form.get('machine_status', machine.machine_status)
+            machine.machine_status = new_status
             machine.machine_condition = request.form.get('machine_condition', machine.machine_condition)
             machine.installation_date = (
                 date.fromisoformat(request.form['installation_date'])
@@ -158,7 +159,28 @@ def edit(machine_id):
             machine.tds_level = float(request.form['tds_level']) if request.form.get('tds_level') else None
             machine.remarks = request.form.get('remarks', '').strip()
 
-            if machine.assigned_customer_id:
+            # If machine is marked Available or Scrapped, unassign it from any customer
+            if new_status in ['Available', 'Scrapped'] and machine.assigned_customer_id:
+                customer = db.session.get(Customer, machine.assigned_customer_id)
+                if customer:
+                    customer.machine_id = None
+                    customer.machine_serial_no = None
+
+                current_assignment = (
+                    MachineAssignmentHistory.query
+                    .filter_by(machine_id=machine_id, customer_id=machine.assigned_customer_id)
+                    .filter(MachineAssignmentHistory.returned_on.is_(None))
+                    .first()
+                )
+                if current_assignment:
+                    current_assignment.returned_on = date.today()
+                    current_assignment.remarks = f"Machine marked as {new_status}"
+
+                machine.assigned_customer_id = None
+                machine.installation_date = None
+
+            elif machine.assigned_customer_id:
+                # Update existing assignment details
                 customer = db.session.get(Customer, machine.assigned_customer_id)
                 if customer:
                     customer.installation_date = machine.installation_date

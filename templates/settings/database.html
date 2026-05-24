@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Database Console - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('settings.index') }}">Settings</a></li>
+      <li class="breadcrumb-item active">Database</li>
+    </ol></nav>
+    <h1 class="page-title"><i class="bi bi-database-gear text-primary"></i> Database Console</h1>
+    <p class="page-subtitle">Admin SQL access for existing application tables</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-outline-secondary" disabled>
+      <i class="bi bi-shield-lock"></i> Admin Only
+    </button>
+  </div>
+</div>
+
+<div class="info-box info-box-warning mb-3">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <div>Use a fresh backup before destructive changes. Only one SELECT, INSERT, UPDATE, or DELETE statement is accepted at a time.</div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+<div class="row g-3 align-items-start">
+  <div class="col-12 col-xl-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-table text-primary"></i> Tables</div>
+      <div class="accordion accordion-flush" id="schemaAccordion">
+        {% for table in tables %}
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="heading{{ loop.index }}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#table{{ loop.index }}">
+              <span class="fw-600">{{ table['name'] }}</span>
+              <span class="badge text-bg-light ms-auto me-2">{{ table['row_count'] if table['row_count'] is not none else '?' }}</span>
+            </button>
+          </h2>
+          <div id="table{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#schemaAccordion">
+            <div class="accordion-body p-0">
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>Column</th>
+                      <th>Type</th>
+                      <th>Flags</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for column in table['columns'] %}
+                    <tr>
+                      <td class="fw-600">{{ column['name'] }}</td>
+                      <td><code>{{ column['type'] }}</code></td>
+                      <td>
+                        {% if column['primary_key'] %}<span class="status-badge status-active">PK</span>{% endif %}
+                        {% if not column['nullable'] %}<span class="status-badge status-pending">Required</span>{% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">No tables found.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-8">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-terminal text-primary"></i> SQL Query</div>
+      <div class="card-body">
+        <form method="POST" id="dbConsoleForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="mb-3">
+            <label class="form-label" for="sql">Statement</label>
+            <textarea id="sql" name="sql" class="form-control font-monospace" rows="10" spellcheck="false" placeholder="SELECT * FROM customers LIMIT 20;">{{ sql }}</textarea>
+          </div>
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="on" name="confirm_write" id="confirmWrite">
+              <label class="form-check-label" for="confirmWrite">Confirm database write</label>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-play-fill"></i> Run SQL
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if result %}
+    <div class="table-card">
+      <div class="table-toolbar">
+        <div class="table-title">
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {{ result.operation }} Result
+        </div>
+        {% if result.rows_affected is not none %}
+        <span class="status-badge status-active">{{ result.rows_affected }} affected</span>
+        {% else %}
+        <span class="status-badge status-pending">{{ result.row_count }} shown</span>
+        {% endif %}
+      </div>
+
+      {% if result.columns %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              {% for column in result.columns %}
+              <th>{{ column }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in result.rows %}
+            <tr>
+              {% for column in result.columns %}
+              {% set value = row[column] %}
+              <td>
+                {% if value is none %}
+                <span class="text-muted">NULL</span>
+                {% else %}
+                {{ value|string|truncate(160) }}
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ result.columns|length }}" class="text-center text-muted py-4">No rows returned.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3 text-muted small">SELECT preview is capped at {{ result.preview_limit }} rows.</div>
+      {% else %}
+      <div class="p-4 text-muted">Statement completed successfully.</div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

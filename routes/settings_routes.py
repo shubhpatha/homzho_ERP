@@ -2,9 +2,12 @@
 routes/settings_routes.py - App settings, user management, backup/restore.
 """
 import os
+import re
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, send_file, current_app)
 from flask_login import login_required, current_user
+from sqlalchemy import inspect
+from sqlalchemy.exc import SQLAlchemyError
 from extensions import db
 from models.user import User, ROLE_PERMISSIONS
 from models.activity_log import ActivityLog
@@ -13,6 +16,9 @@ from utils.helpers import log_activity
 from utils.backup_utils import create_backup, list_backups, restore_backup
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/settings')
+
+ALLOWED_DB_OPERATIONS = {'select', 'insert', 'update', 'delete'}
+READ_PREVIEW_LIMIT = 100
 
 
 def admin_required(f):
@@ -25,6 +31,143 @@ def admin_required(f):
             return redirect(url_for('dashboard.index'))
         return f(*args, **kwargs)
     return decorated
+
+
+def _find_statement_semicolons(sql):
+    """Return semicolons that are outside simple quoted SQL strings."""
+    semicolons = []
+    in_single = False
+    in_double = False
+    i = 0
+    while i < len(sql):
+        char = sql[i]
+        next_char = sql[i + 1] if i + 1 < len(sql) else ''
+        if char == "'" and not in_double:
+            if in_single and next_char == "'":
+                i += 2
+                continue
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            if in_double and next_char == '"':
+                i += 2
+                continue
+            in_double = not in_double
+        elif char == ';' and not in_single and not in_double:
+            semicolons.append(i)
+        i += 1
+    return semicolons
+
+
+def _normalise_sql(sql):
+    """Validate one admin SQL statement and return (statement, operation)."""
+    statement = (sql or '').strip()
+    if not statement:
+        raise ValueError('Enter a SQL statement.')
+
+    semicolons = _find_statement_semicolons(statement)
+    if semicolons:
+        first_semicolon = semicolons[0]
+        if len(semicolons) > 1 or statement[first_semicolon + 1:].strip():
+            raise ValueError('Run one SQL statement at a time.')
+        statement = statement[:first_semicolon].strip()
+
+    allowed_pattern = '|'.join(sorted(ALLOWED_DB_OPERATIONS))
+    match = re.match(rf'^({allowed_pattern})\b', statement, re.IGNORECASE)
+    if not match:
+        raise ValueError('Only SELECT, INSERT, UPDATE, and DELETE statements are allowed.')
+
+    return statement, match.group(1).lower()
+
+
+def _clean_identifier(identifier):
+    """Normalise a simple table identifier extracted from SQL."""
+    cleaned = identifier.strip().strip('`"[]')
+    if '.' in cleaned:
+        cleaned = cleaned.split('.')[-1].strip('`"[]')
+    return cleaned
+
+
+def _extract_write_table(operation, statement):
+    patterns = {
+        'insert': r'^\s*insert\s+(?:or\s+\w+\s+)?into\s+([`"\[]?[\w.]+[`"\]]?)',
+        'update': r'^\s*update\s+(?:or\s+\w+\s+)?([`"\[]?[\w.]+[`"\]]?)',
+        'delete': r'^\s*delete\s+from\s+([`"\[]?[\w.]+[`"\]]?)',
+    }
+    match = re.match(patterns[operation], statement, re.IGNORECASE)
+    return _clean_identifier(match.group(1)) if match else None
+
+
+def _schema_snapshot():
+    """Return table metadata for the database console."""
+    inspector = inspect(db.engine)
+    preparer = db.engine.dialect.identifier_preparer
+    tables = []
+
+    for table_name in inspector.get_table_names():
+        if table_name.startswith('sqlite_'):
+            continue
+
+        row_count = None
+        try:
+            quoted_table = preparer.quote(table_name)
+            row_count = db.session.connection().exec_driver_sql(
+                f'SELECT COUNT(*) FROM {quoted_table}'
+            ).scalar()
+        except SQLAlchemyError:
+            db.session.rollback()
+
+        columns = []
+        for column in inspector.get_columns(table_name):
+            columns.append({
+                'name': column['name'],
+                'type': str(column['type']),
+                'nullable': column.get('nullable', True),
+                'primary_key': bool(column.get('primary_key')),
+                'default': column.get('default'),
+            })
+
+        tables.append({
+            'name': table_name,
+            'row_count': row_count,
+            'columns': columns,
+        })
+
+    return sorted(tables, key=lambda item: item['name'])
+
+
+def _validate_write_table(operation, statement, existing_tables):
+    target_table = _extract_write_table(operation, statement)
+    if not target_table or target_table not in existing_tables:
+        raise ValueError('Write queries must target an existing application table.')
+    if target_table.startswith('sqlite_'):
+        raise ValueError('SQLite internal tables cannot be modified here.')
+    return target_table
+
+
+def _run_database_statement(statement, operation):
+    result = db.session.connection().exec_driver_sql(statement)
+
+    if operation == 'select':
+        columns = list(result.keys())
+        rows = [dict(zip(columns, row)) for row in result.fetchmany(READ_PREVIEW_LIMIT)]
+        return {
+            'operation': operation.upper(),
+            'columns': columns,
+            'rows': rows,
+            'row_count': len(rows),
+            'preview_limit': READ_PREVIEW_LIMIT,
+            'rows_affected': None,
+        }
+
+    db.session.commit()
+    return {
+        'operation': operation.upper(),
+        'columns': [],
+        'rows': [],
+        'row_count': 0,
+        'preview_limit': READ_PREVIEW_LIMIT,
+        'rows_affected': result.rowcount,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +327,67 @@ def toggle_plan(plan_id):
     db.session.commit()
     flash(f'Plan "{plan.plan_name}" {"activated" if plan.is_active else "deactivated"}.', 'success')
     return redirect(url_for('settings.plans'))
+
+
+# ---------------------------------------------------------------------------
+# Database Console
+# ---------------------------------------------------------------------------
+
+@settings_bp.route('/database', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def database():
+    """Run admin-approved SQL against existing application tables."""
+    sql = request.form.get('sql', '').strip()
+    result = None
+    error = None
+    tables = _schema_snapshot()
+
+    if request.method == 'POST':
+        target_table = None
+        try:
+            statement, operation = _normalise_sql(sql)
+            sql = statement
+
+            if operation != 'select':
+                if request.form.get('confirm_write') != 'on':
+                    raise ValueError('Confirm database writes before running INSERT, UPDATE, or DELETE.')
+                target_table = _validate_write_table(
+                    operation,
+                    statement,
+                    {table['name'] for table in tables},
+                )
+
+            result = _run_database_statement(statement, operation)
+
+            if operation != 'select':
+                log_activity(
+                    current_user.username,
+                    operation.upper(),
+                    'Database',
+                    remarks=(
+                        f'{operation.upper()} on {target_table}; '
+                        f'rows affected: {result["rows_affected"]}; '
+                        f'SQL: {statement[:500]}'
+                    ),
+                    ip_address=request.remote_addr,
+                )
+                flash(f'{operation.upper()} completed. Rows affected: {result["rows_affected"]}.', 'success')
+
+            tables = _schema_snapshot()
+        except (ValueError, SQLAlchemyError) as exc:
+            db.session.rollback()
+            error = str(getattr(exc, 'orig', exc))
+            current_app.logger.warning(f'Database console error: {error}')
+
+    return render_template(
+        'settings/database.html',
+        active_page='settings_database',
+        tables=tables,
+        sql=sql,
+        result=result,
+        error=error,
+    )
 
 
 # ---------------------------------------------------------------------------

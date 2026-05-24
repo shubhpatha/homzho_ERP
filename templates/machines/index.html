@@ -58,7 +58,7 @@
           <td>{{ m.machine_condition }}</td>
           <td>
             {% if m.assigned_customer_id %}
-              {% set cust = m.customers[0] if m.customers else none %}
+              {% set cust = m.customers | selectattr("cust_id", "equalto", m.assigned_customer_id) | first | default(none) %}
               <a href="{{ url_for('customers.view', cust_id=m.assigned_customer_id) }}" class="text-decoration-none">
                 {{ cust.cust_name if cust else 'Customer #' ~ m.assigned_customer_id }}
               </a>

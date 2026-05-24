@@ -2,7 +2,7 @@
 {% block title %}{{ machine.machine_serial_no }} - Homzho ERP{% endblock %}
 
 {% block content %}
-{% set assigned_customer = machine.customers[0] if machine.customers else none %}
+{% set assigned_customer = machine.customers | selectattr('cust_id', 'equalto', machine.assigned_customer_id) | first | default(none) if machine.assigned_customer_id and machine.customers else none %}
 
 <div class="page-header">
   <div>

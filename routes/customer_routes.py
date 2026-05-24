@@ -175,14 +175,16 @@ def add():
                         date.fromisoformat(request.form['installation_date'])
                         if request.form.get('installation_date') else date.today()
                     )
+                    customer.next_service_date = customer.installation_date + timedelta(days=90)
 
             db.session.add(customer)
             db.session.flush()
 
-            if machine_id and machine:
+            if customer.machine_id and machine:
                 machine.machine_status = 'Installed'
                 machine.assigned_customer_id = customer.cust_id
                 machine.installation_date = customer.installation_date
+                machine.next_service_date = customer.next_service_date
                 db.session.add(MachineAssignmentHistory(
                     machine_id=machine.machine_id,
                     customer_id=customer.cust_id,
@@ -266,12 +268,18 @@ def edit(cust_id):
     if request.method == 'POST':
         try:
             plan = db.get_or_404(Plan, int(request.form['plan_id']))
+            new_start_date = date.fromisoformat(request.form['plan_start_date'])
+            
+            # Check if plan or start date changed to auto-update next billing date
+            plan_changed = (customer.plan_name != plan.plan_name)
+            start_date_changed = (customer.plan_start_date != new_start_date)
+
             customer.cust_name = request.form['cust_name'].strip()
             customer.contact_number = request.form['contact_number'].strip()
             customer.email_id = request.form.get('email_id', '').strip() or None
             customer.plan_name = plan.plan_name
             customer.plan_duration_months = plan.duration_months
-            customer.plan_start_date = date.fromisoformat(request.form['plan_start_date'])
+            customer.plan_start_date = new_start_date
             customer.plan_end_date = customer.plan_start_date + timedelta(days=plan.validity_in_days)
             customer.payment_freq = plan.payment_frequency
             customer.monthly_rent = plan.cost
@@ -282,45 +290,96 @@ def edit(cust_id):
             customer.city = request.form.get('city', '').strip()
             customer.pin = request.form.get('pin', '').strip()
             customer.notes = request.form.get('notes', '').strip()
+            installation_date_raw = request.form.get('installation_date', '').strip()
+            customer.installation_date = (
+                date.fromisoformat(installation_date_raw)
+                if installation_date_raw else None
+            )
             customer.installed_by = request.form.get('installed_by', '').strip()
             customer.installation_cost = float(request.form.get('installation_cost', 0) or 0)
 
-            if request.form.get('next_billing_date'):
+            if plan_changed or start_date_changed:
+                customer.next_billing_date = customer.plan_end_date
+            elif request.form.get('next_billing_date'):
                 customer.next_billing_date = date.fromisoformat(request.form['next_billing_date'])
 
             # Handle machine reassignment
-            new_machine_id = request.form.get('machine_id')
-            if new_machine_id:
-                new_machine_id = int(new_machine_id)
-                if new_machine_id != customer.machine_id:
-                    # Unassign old machine
-                    if customer.machine_id:
-                        old_machine = db.session.get(Machine, customer.machine_id)
-                        if old_machine:
-                            old_machine.machine_status = 'Available'
-                            old_machine.assigned_customer_id = None
-                        # Close old assignment history
-                        old_hist = (MachineAssignmentHistory.query
-                                    .filter_by(machine_id=customer.machine_id, customer_id=cust_id)
-                                    .filter(MachineAssignmentHistory.returned_on.is_(None))
-                                    .first())
-                        if old_hist:
-                            old_hist.returned_on = date.today()
+            new_machine_id_raw = request.form.get('machine_id', '').strip()
+            new_machine_id = int(new_machine_id_raw) if new_machine_id_raw else None
+            old_machine_id = customer.machine_id
+            if new_machine_id and customer.installation_date is None:
+                selected_machine = db.session.get(Machine, new_machine_id)
+                customer.installation_date = (
+                    selected_machine.installation_date
+                    if selected_machine and selected_machine.installation_date
+                    else date.today()
+                )
+            assignment_date = customer.installation_date or date.today()
 
+            if new_machine_id != old_machine_id:
+                # Unassign old machine
+                if old_machine_id:
+                    old_machine = db.session.get(Machine, old_machine_id)
+                    if old_machine and old_machine.assigned_customer_id == cust_id:
+                        old_machine.machine_status = 'Available'
+                        old_machine.assigned_customer_id = None
+                        old_machine.installation_date = None
+                    # Close old assignment history
+                    old_hist = (MachineAssignmentHistory.query
+                                .filter_by(machine_id=old_machine_id, customer_id=cust_id)
+                                .filter(MachineAssignmentHistory.returned_on.is_(None))
+                                .first())
+                    if old_hist:
+                        old_hist.returned_on = date.today()
+
+                if new_machine_id:
                     # Assign new machine
                     new_machine = db.session.get(Machine, new_machine_id)
-                    if new_machine:
-                        customer.machine_id = new_machine_id
-                        customer.machine_serial_no = new_machine.machine_serial_no
-                        new_machine.machine_status = 'Installed'
-                        new_machine.assigned_customer_id = cust_id
-                        hist = MachineAssignmentHistory(
-                            machine_id=new_machine_id,
-                            customer_id=cust_id,
-                            assigned_on=date.today(),
-                            remarks='Reassigned during customer edit',
-                        )
-                        db.session.add(hist)
+                    if not new_machine:
+                        raise ValueError('Selected machine was not found.')
+
+                    # Clear it from previous owner if necessary
+                    if new_machine.assigned_customer_id and new_machine.assigned_customer_id != cust_id:
+                        prev_customer_id = new_machine.assigned_customer_id
+                        prev_cust = db.session.get(Customer, prev_customer_id)
+                        if prev_cust and prev_cust.machine_id == new_machine_id:
+                            prev_cust.machine_id = None
+                            prev_cust.machine_serial_no = None
+
+                        prev_hist = (MachineAssignmentHistory.query
+                                     .filter_by(machine_id=new_machine_id, customer_id=prev_customer_id)
+                                     .filter(MachineAssignmentHistory.returned_on.is_(None))
+                                     .first())
+                        if prev_hist:
+                            prev_hist.returned_on = date.today()
+
+                    customer.machine_id = new_machine_id
+                    customer.machine_serial_no = new_machine.machine_serial_no
+                    customer.next_service_date = assignment_date + timedelta(days=90)
+                    new_machine.machine_status = 'Installed'
+                    new_machine.assigned_customer_id = cust_id
+                    new_machine.installation_date = assignment_date
+                    new_machine.next_service_date = customer.next_service_date
+                    hist = MachineAssignmentHistory(
+                        machine_id=new_machine_id,
+                        customer_id=cust_id,
+                        assigned_on=assignment_date,
+                        remarks='Reassigned during customer edit',
+                    )
+                    db.session.add(hist)
+                else:
+                    customer.machine_id = None
+                    customer.machine_serial_no = None
+                    customer.installation_date = None
+                    customer.next_service_date = None
+            elif customer.machine_id:
+                machine = db.session.get(Machine, customer.machine_id)
+                if machine and machine.assigned_customer_id in (None, cust_id):
+                    customer.next_service_date = assignment_date + timedelta(days=90)
+                    machine.machine_status = 'Installed'
+                    machine.assigned_customer_id = cust_id
+                    machine.installation_date = assignment_date
+                    machine.next_service_date = customer.next_service_date
 
             db.session.commit()
             log_activity(current_user.username, 'Edit', 'Customer', cust_id,
@@ -363,6 +422,8 @@ def delete(cust_id):
             if machine:
                 machine.machine_status = 'Available'
                 machine.assigned_customer_id = None
+            customer.machine_id = None
+            customer.machine_serial_no = None
 
         db.session.commit()
         log_activity(current_user.username, 'Delete', 'Customer', cust_id,
