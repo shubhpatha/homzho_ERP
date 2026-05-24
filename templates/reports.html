@@ -40,8 +40,12 @@
       <div class="card-header"><i class="bi bi-wallet2 text-success"></i> Financial Summary</div>
       <div class="card-body">
         <div class="d-flex justify-content-between mb-2">
-          <span class="text-muted">Total Revenue</span>
+          <span class="text-muted">Gross Collections</span>
           <span class="fw-bold text-success">₹{{ '{:,.0f}'.format(total_revenue) }}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Taxable Revenue</span>
+          <span class="fw-bold">₹{{ '{:,.0f}'.format(taxable_revenue) }}</span>
         </div>
         <div class="d-flex justify-content-between mb-2">
           <span class="text-muted">Total Expenses</span>
@@ -50,10 +54,34 @@
         <hr class="my-2">
         <div class="d-flex justify-content-between">
           <span class="fw-bold">Net Profit</span>
-          <span class="fw-bold fs-5 {% if total_revenue - total_expenses >= 0 %}text-success{% else %}text-danger{% endif %}">
-            ₹{{ '{:,.0f}'.format(total_revenue - total_expenses) }}
+          <span class="fw-bold fs-5 {% if net_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+            ₹{{ '{:,.0f}'.format(net_profit) }}
           </span>
         </div>
+        <small class="text-muted d-block mt-2">Net profit is taxable revenue minus expenses.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tax Summary -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-receipt-cutoff text-info"></i> Tax Summary</div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">CGST 9%</span>
+          <span class="fw-bold">₹{{ '{:,.0f}'.format(total_cgst) }}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">SGST 9%</span>
+          <span class="fw-bold">₹{{ '{:,.0f}'.format(total_sgst) }}</span>
+        </div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold">Total GST Paid</span>
+          <span class="fw-bold fs-5 text-info">₹{{ '{:,.0f}'.format(total_tax_paid) }}</span>
+        </div>
+        <small class="text-muted d-block mt-2">GST is calculated from inclusive plan/payment amounts.</small>
       </div>
     </div>
   </div>

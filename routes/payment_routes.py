@@ -11,6 +11,7 @@ from models.customer import Customer
 from models.payment import Payment
 from models.plan import Plan
 from utils.helpers import log_activity, get_page_items, generate_invoice_no
+from utils.tax import calculate_inclusive_gst
 
 payment_bp = Blueprint('payments', __name__, url_prefix='/payments')
 
@@ -172,7 +173,15 @@ def view(payment_id):
         return redirect(url_for('dashboard.index'))
 
     payment = db.get_or_404(Payment, payment_id)
-    return render_template('payments/view.html', payment=payment, active_page='payments')
+    invoice_amount = payment.amount_due or payment.amount_paid
+    invoice_tax = calculate_inclusive_gst(invoice_amount)
+    return render_template(
+        'payments/view.html',
+        payment=payment,
+        invoice_amount=invoice_amount,
+        invoice_tax=invoice_tax,
+        active_page='payments',
+    )
 
 
 # ---------------------------------------------------------------------------

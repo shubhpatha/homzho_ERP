@@ -83,7 +83,19 @@
       <div class="stat-icon purple"><i class="bi bi-graph-up-arrow"></i></div>
       <div>
         <div class="stat-value" id="kpi-revenue">₹{{ '{:,.0f}'.format(stats.monthly_revenue) }}</div>
-        <div class="stat-label">Monthly Revenue</div>
+        <div class="stat-label">Monthly Collections</div>
+        <div class="stat-change">Before tax: ₹{{ '{:,.0f}'.format(stats.monthly_taxable_revenue) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon teal"><i class="bi bi-receipt-cutoff"></i></div>
+      <div>
+        <div class="stat-value">₹{{ '{:,.0f}'.format(stats.monthly_tax_paid) }}</div>
+        <div class="stat-label">Monthly GST</div>
+        <div class="stat-change">CGST ₹{{ '{:,.0f}'.format(stats.monthly_cgst) }}</div>
+        <div class="stat-change">SGST ₹{{ '{:,.0f}'.format(stats.monthly_sgst) }}</div>
       </div>
     </div>
   </div>
@@ -100,8 +112,9 @@
     <div class="stat-card">
       <div class="stat-icon green"><i class="bi bi-piggy-bank-fill"></i></div>
       <div>
-        <div class="stat-value">₹{{ '{:,.0f}'.format(stats.monthly_revenue - stats.monthly_expenses) }}</div>
+        <div class="stat-value">₹{{ '{:,.0f}'.format(stats.monthly_net_profit) }}</div>
         <div class="stat-label">Net Profit</div>
+        <div class="stat-change">After GST and expenses</div>
       </div>
     </div>
   </div>
@@ -113,7 +126,7 @@
     <div class="card h-100">
       <div class="card-header">
         <i class="bi bi-bar-chart-fill text-primary"></i>
-        Revenue vs Expenses (Last 6 Months)
+        Collections, Tax & Expenses (Last 6 Months)
       </div>
       <div class="card-body">
         <canvas id="revenueChart" height="80"></canvas>
@@ -221,9 +234,15 @@ new Chart(ctx, {
     labels: collections.map(d => d.month),
     datasets: [
       {
-        label: 'Revenue ₹',
+        label: 'Collections ₹',
         data: collections.map(d => d.total),
         backgroundColor: 'rgba(26,115,232,0.8)',
+        borderRadius: 6,
+      },
+      {
+        label: 'GST ₹',
+        data: collections.map(d => d.tax_paid),
+        backgroundColor: 'rgba(0,150,136,0.65)',
         borderRadius: 6,
       },
       {

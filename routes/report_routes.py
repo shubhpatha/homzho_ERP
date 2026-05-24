@@ -12,6 +12,7 @@ from models.payment import Payment
 from models.expense import Expense
 from models.customer import Customer
 from models.machine import Machine
+from utils.tax import calculate_inclusive_gst
 
 report_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
@@ -52,6 +53,7 @@ def index():
         Payment.payment_date >= start_date,
         Payment.payment_date <= end_date,
     ).scalar() or 0
+    revenue_tax = calculate_inclusive_gst(total_revenue)
 
     total_expenses = db.session.query(
         func.coalesce(func.sum(Expense.amount), 0)
@@ -59,6 +61,7 @@ def index():
         Expense.expense_date >= start_date,
         Expense.expense_date <= end_date,
     ).scalar() or 0
+    net_profit = revenue_tax['taxable_amount'] - float(total_expenses)
 
     # ── Machine status distribution ──────────────────────────────────────────
     machine_status = db.session.query(
@@ -93,7 +96,12 @@ def index():
         start_date=start_date,
         end_date=end_date,
         total_revenue=float(total_revenue),
+        taxable_revenue=revenue_tax['taxable_amount'],
+        total_cgst=revenue_tax['cgst_amount'],
+        total_sgst=revenue_tax['sgst_amount'],
+        total_tax_paid=revenue_tax['total_tax_amount'],
         total_expenses=float(total_expenses),
+        net_profit=net_profit,
         machine_status=machine_status,
         expense_breakdown=expense_breakdown,
         new_customers=new_customers,
@@ -129,22 +137,46 @@ def export_summary():
         Expense.expense_date <= end_date,
     ).order_by(Expense.expense_date).all()
 
+    total_revenue = sum(float(p.amount_paid or 0) for p in payments)
+    total_expenses = sum(float(e.amount or 0) for e in expenses)
+    revenue_tax = calculate_inclusive_gst(total_revenue)
+    net_profit = revenue_tax['taxable_amount'] - total_expenses
+
     output = io.StringIO()
     writer = csv.writer(output)
 
     writer.writerow([f'Report: {start_date} to {end_date}'])
     writer.writerow([])
 
+    writer.writerow(['--- SUMMARY ---'])
+    writer.writerow(['Gross Collections', total_revenue])
+    writer.writerow(['Taxable Revenue', round(revenue_tax['taxable_amount'], 2)])
+    writer.writerow(['CGST 9%', round(revenue_tax['cgst_amount'], 2)])
+    writer.writerow(['SGST 9%', round(revenue_tax['sgst_amount'], 2)])
+    writer.writerow(['Total GST Paid', round(revenue_tax['total_tax_amount'], 2)])
+    writer.writerow(['Total Expenses', total_expenses])
+    writer.writerow(['Net Profit After GST and Expenses', round(net_profit, 2)])
+    writer.writerow([])
+
     writer.writerow(['--- PAYMENTS ---'])
-    writer.writerow(['Date', 'Customer', 'Amount (₹)', 'Mode'])
+    writer.writerow(['Date', 'Customer', 'Gross Amount', 'Taxable Amount', 'CGST 9%', 'SGST 9%', 'Mode'])
     for p in payments:
-        writer.writerow([p.payment_date, p.cust_name, p.amount_paid, p.payment_mode])
+        payment_tax = calculate_inclusive_gst(p.amount_paid)
+        writer.writerow([
+            p.payment_date,
+            p.cust_name,
+            p.amount_paid,
+            round(payment_tax['taxable_amount'], 2),
+            round(payment_tax['cgst_amount'], 2),
+            round(payment_tax['sgst_amount'], 2),
+            p.payment_mode,
+        ])
 
     writer.writerow([])
     writer.writerow(['--- EXPENSES ---'])
-    writer.writerow(['Date', 'Category', 'Description', 'Amount (₹)'])
+    writer.writerow(['Date', 'Category', 'Remarks', 'Amount'])
     for e in expenses:
-        writer.writerow([e.expense_date, e.expense_category, e.description, e.amount])
+        writer.writerow([e.expense_date, e.expense_category, e.remarks, e.amount])
 
     output.seek(0)
     filename = f'report_{start_date}_{end_date}.csv'

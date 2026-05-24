@@ -3,13 +3,18 @@ models/plan.py - Rental plan master data.
 """
 from datetime import datetime
 from extensions import db
+from utils.tax import (
+    CGST_RATE as PLAN_CGST_RATE,
+    SGST_RATE as PLAN_SGST_RATE,
+    calculate_inclusive_gst,
+)
 
 
 class Plan(db.Model):
     """Master rental plan used to populate customer forms."""
     __tablename__ = 'plans'
-    CGST_RATE = 0.09
-    SGST_RATE = 0.09
+    CGST_RATE = PLAN_CGST_RATE
+    SGST_RATE = PLAN_SGST_RATE
 
     plan_id = db.Column(db.Integer, primary_key=True)
     plan_name = db.Column(db.String(120), unique=True, nullable=False, index=True)
@@ -35,20 +40,19 @@ class Plan(db.Model):
     @property
     def taxable_cost(self):
         """Cost before GST when stored cost is GST-inclusive."""
-        total_rate = self.CGST_RATE + self.SGST_RATE
-        return (self.cost or 0) / (1 + total_rate)
+        return calculate_inclusive_gst(self.cost)['taxable_amount']
 
     @property
     def cgst_amount(self):
-        return self.taxable_cost * self.CGST_RATE
+        return calculate_inclusive_gst(self.cost)['cgst_amount']
 
     @property
     def sgst_amount(self):
-        return self.taxable_cost * self.SGST_RATE
+        return calculate_inclusive_gst(self.cost)['sgst_amount']
 
     @property
     def total_gst_amount(self):
-        return self.cgst_amount + self.sgst_amount
+        return calculate_inclusive_gst(self.cost)['total_tax_amount']
 
     def __repr__(self):
         return f'<Plan {self.plan_name}>'

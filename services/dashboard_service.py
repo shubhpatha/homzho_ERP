@@ -9,6 +9,7 @@ from models.machine import Machine
 from models.payment import Payment
 from models.maintenance import Maintenance
 from models.expense import Expense
+from utils.tax import calculate_inclusive_gst
 
 
 def get_dashboard_stats() -> dict:
@@ -53,6 +54,7 @@ def get_dashboard_stats() -> dict:
     ).filter(
         Payment.payment_date >= first_of_month
     ).scalar() or 0
+    monthly_tax = calculate_inclusive_gst(monthly_revenue)
 
     # Monthly expenses (current month)
     monthly_expenses = db.session.query(
@@ -60,6 +62,7 @@ def get_dashboard_stats() -> dict:
     ).filter(
         Expense.expense_date >= first_of_month
     ).scalar() or 0
+    monthly_net_profit = monthly_tax['taxable_amount'] - float(monthly_expenses)
 
     return {
         'total_customers': total_customers,
@@ -69,8 +72,13 @@ def get_dashboard_stats() -> dict:
         'pending_billing': pending_billing,
         'overdue_billing': overdue_billing,
         'upcoming_maintenance': upcoming_maintenance,
-        'monthly_revenue': round(monthly_revenue, 2),
-        'monthly_expenses': round(monthly_expenses, 2),
+        'monthly_revenue': round(float(monthly_revenue), 2),
+        'monthly_taxable_revenue': round(monthly_tax['taxable_amount'], 2),
+        'monthly_cgst': round(monthly_tax['cgst_amount'], 2),
+        'monthly_sgst': round(monthly_tax['sgst_amount'], 2),
+        'monthly_tax_paid': round(monthly_tax['total_tax_amount'], 2),
+        'monthly_expenses': round(float(monthly_expenses), 2),
+        'monthly_net_profit': round(monthly_net_profit, 2),
     }
 
 
@@ -92,10 +100,13 @@ def get_monthly_collections(months: int = 6) -> list:
             Payment.payment_date >= month_start,
             Payment.payment_date < month_end
         ).scalar() or 0
+        tax = calculate_inclusive_gst(total)
 
         result.append({
             'month': month_start.strftime('%b %Y'),
             'total': round(float(total), 2),
+            'taxable': round(tax['taxable_amount'], 2),
+            'tax_paid': round(tax['total_tax_amount'], 2),
         })
     return result
 
