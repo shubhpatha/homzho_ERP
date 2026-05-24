@@ -8,6 +8,8 @@ from extensions import db
 class Plan(db.Model):
     """Master rental plan used to populate customer forms."""
     __tablename__ = 'plans'
+    CGST_RATE = 0.09
+    SGST_RATE = 0.09
 
     plan_id = db.Column(db.Integer, primary_key=True)
     plan_name = db.Column(db.String(120), unique=True, nullable=False, index=True)
@@ -29,6 +31,24 @@ class Plan(db.Model):
         if self.validity_in_days <= 180:
             return 'Half Yearly'
         return 'Annual'
+
+    @property
+    def taxable_cost(self):
+        """Cost before GST when stored cost is GST-inclusive."""
+        total_rate = self.CGST_RATE + self.SGST_RATE
+        return (self.cost or 0) / (1 + total_rate)
+
+    @property
+    def cgst_amount(self):
+        return self.taxable_cost * self.CGST_RATE
+
+    @property
+    def sgst_amount(self):
+        return self.taxable_cost * self.SGST_RATE
+
+    @property
+    def total_gst_amount(self):
+        return self.cgst_amount + self.sgst_amount
 
     def __repr__(self):
         return f'<Plan {self.plan_name}>'

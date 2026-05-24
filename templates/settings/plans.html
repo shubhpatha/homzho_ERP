@@ -26,6 +26,7 @@
           <th>Plan Name</th>
           <th>Validity</th>
           <th>Cost</th>
+          <th>GST Breakup</th>
           <th>Billing</th>
           <th>Status</th>
           <th>Actions</th>
@@ -36,7 +37,15 @@
         <tr>
           <td class="fw-600">{{ p.plan_name }}</td>
           <td>{{ p.validity_in_days }} days</td>
-          <td>Rs {{ '{:,.0f}'.format(p.cost) }}</td>
+          <td>
+            <span class="fw-600">Rs {{ '{:,.2f}'.format(p.cost) }}</span>
+            <small class="text-muted d-block">Inclusive of GST</small>
+          </td>
+          <td>
+            <div>Taxable: Rs {{ '{:,.2f}'.format(p.taxable_cost) }}</div>
+            <small class="text-muted d-block">CGST 9%: Rs {{ '{:,.2f}'.format(p.cgst_amount) }}</small>
+            <small class="text-muted d-block">SGST 9%: Rs {{ '{:,.2f}'.format(p.sgst_amount) }}</small>
+          </td>
           <td>{{ p.payment_frequency }}</td>
           <td>
             {% if p.is_active %}
@@ -58,7 +67,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="text-center text-muted py-5">No plans found.</td></tr>
+        <tr><td colspan="7" class="text-center text-muted py-5">No plans found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -86,6 +95,7 @@
           <div class="mb-3">
             <label class="form-label">Cost</label>
             <input type="number" name="cost" class="form-control" min="0" step="0.01" required />
+            <small class="text-muted">Enter the final customer price. CGST 9% and SGST 9% are included in this cost.</small>
           </div>
         </div>
         <div class="modal-footer">
@@ -119,6 +129,7 @@
           <div class="mb-3">
             <label class="form-label">Cost</label>
             <input type="number" name="cost" class="form-control" value="{{ p.cost }}" min="0" step="0.01" required />
+            <small class="text-muted">Enter the final customer price. CGST 9% and SGST 9% are included in this cost.</small>
           </div>
         </div>
         <div class="modal-footer">
