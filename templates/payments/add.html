@@ -1,5 +1,76 @@
 {% extends "base.html" %}
-{% block title %}Record Payment – Homzho ERP{% endblock %}
+{% block title %}Record Payment - Homzho ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+  .invoice-builder-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 18px;
+    align-items: start;
+  }
+  .invoice-items-table {
+    min-width: 720px;
+  }
+  .invoice-items-table th {
+    background: var(--surface2);
+  }
+  .invoice-items-table .col-description {
+    min-width: 260px;
+  }
+  .invoice-items-table .col-qty {
+    width: 110px;
+  }
+  .invoice-items-table .col-rate,
+  .invoice-items-table .col-total {
+    width: 150px;
+  }
+  .invoice-items-table .col-action {
+    width: 48px;
+  }
+  .invoice-line-total {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-weight: 600;
+  }
+  .summary-panel {
+    position: sticky;
+    top: calc(var(--topbar-h) + 18px);
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-row strong {
+    color: var(--text);
+  }
+  .summary-row.total {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+    border-bottom: 0;
+    padding-top: 14px;
+  }
+  .summary-row.balance {
+    font-weight: 700;
+    border-bottom: 0;
+  }
+  @media (max-width: 992px) {
+    .invoice-builder-grid {
+      grid-template-columns: 1fr;
+    }
+    .summary-panel {
+      position: static;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -12,19 +83,19 @@
   </div>
 </div>
 
-<div class="row g-3 justify-content-center">
-  <div class="col-12 col-lg-8">
-    <div class="card">
-      <div class="card-header"><i class="bi bi-cash-coin text-success"></i> Payment Details</div>
-      <div class="card-body">
-        <form method="POST" action="{{ url_for('payments.add') }}" novalidate>
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="row g-3">
+<form method="POST" action="{{ url_for('payments.add') }}" novalidate id="paymentForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
+  <div class="invoice-builder-grid">
+    <div class="d-grid gap-3">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-person-vcard text-primary"></i> Customer & Payment</div>
+        <div class="card-body">
+          <div class="row g-3">
             <div class="col-12">
               <label class="form-label">Customer <span class="text-danger">*</span></label>
               <select name="customer_id" id="customer_id" class="form-select" required>
-                <option value="">— Select Customer —</option>
+                <option value="">&mdash; Select Customer &mdash;</option>
                 {% for c in customers %}
                 <option value="{{ c.cust_id }}"
                   {% if prefill_customer_id == c.cust_id %}selected{% endif %}>
@@ -48,20 +119,70 @@
                 {% endfor %}
               </select>
             </div>
+          </div>
+        </div>
+      </div>
 
+      <div class="card">
+        <div class="card-header justify-content-between">
+          <span><i class="bi bi-receipt-cutoff text-success"></i> Invoice Items</span>
+          <button type="button" class="btn btn-outline-primary btn-sm" id="addItemBtn">
+            <i class="bi bi-plus-circle"></i> Add Product
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table invoice-items-table mb-0">
+              <thead>
+                <tr>
+                  <th class="col-description">Product / Service</th>
+                  <th class="col-qty text-end">Qty</th>
+                  <th class="col-rate text-end">Rate</th>
+                  <th class="col-total text-end">Total</th>
+                  <th class="col-action"></th>
+                </tr>
+              </thead>
+              <tbody id="invoiceItemsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="bi bi-shield-check text-warning"></i> Deposit</div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="include_deposit" name="include_deposit" value="1">
+                <label class="form-check-label" for="include_deposit">Add deposit</label>
+              </div>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label">Deposit Amount (&#8377;)</label>
+              <input type="number" name="deposit_amount" id="deposit_amount" class="form-control" min="0" step="0.01" value="0" disabled />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="bi bi-cash-stack text-success"></i> Collection Details</div>
+        <div class="card-body">
+          <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Amount Due (₹)</label>
-              <input type="number" name="amount_due" id="amount_due" class="form-control" placeholder="Auto-filled from customer" min="0" step="0.01" />
+              <label class="form-label">Amount Due (&#8377;)</label>
+              <input type="number" name="amount_due" id="amount_due" class="form-control" min="0" step="0.01" readonly />
             </div>
 
             <div class="col-md-6">
-              <label class="form-label">Amount Paid (₹) <span class="text-danger">*</span></label>
-              <input type="number" name="amount_paid" class="form-control" placeholder="e.g. 500" min="0" step="0.01" required />
+              <label class="form-label">Amount Paid (&#8377;) <span class="text-danger">*</span></label>
+              <input type="number" name="amount_paid" id="amount_paid" class="form-control" placeholder="e.g. 500" min="0" step="0.01" required />
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Transaction ID / Reference</label>
-              <input type="text" name="transaction_id" class="form-control" placeholder="UPI ref / cheque no (optional)" />
+              <input type="text" name="transaction_id" class="form-control" placeholder="UPI ref / cheque no" />
             </div>
 
             <div class="col-md-6">
@@ -72,21 +193,215 @@
 
             <div class="col-12">
               <label class="form-label">Remarks</label>
-              <textarea name="remark" class="form-control" rows="2" placeholder="Any notes about this payment…"></textarea>
-            </div>
-
-            <div class="col-12">
-              <div class="d-flex gap-2 justify-content-end mt-2">
-                <a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
-                <button type="submit" class="btn btn-success btn-lg">
-                  <i class="bi bi-check-circle-fill me-2"></i> Record Payment
-                </button>
-              </div>
+              <textarea name="remark" class="form-control" rows="2" placeholder="Any notes about this payment"></textarea>
             </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
+
+    <aside class="summary-panel">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-calculator text-primary"></i> Invoice Summary</div>
+        <div class="card-body">
+          <div class="summary-row">
+            <span>Taxable items</span>
+            <strong id="summaryTaxableItems">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>Cost before GST</span>
+            <strong id="summaryTaxableBase">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>CGST @ 9%</span>
+            <strong id="summaryCgst">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>SGST @ 9%</span>
+            <strong id="summarySgst">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>Deposit</span>
+            <strong id="summaryDeposit">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row total">
+            <span>Total</span>
+            <strong id="summaryTotal">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>Amount paid</span>
+            <strong id="summaryPaid">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row balance">
+            <span>Balance</span>
+            <strong id="summaryBalance">&#8377;0.00</strong>
+          </div>
+        </div>
+        <div class="card-body border-top">
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-success btn-lg">
+              <i class="bi bi-check-circle-fill"></i> Record Payment
+            </button>
+            <a href="{{ url_for('payments.index') }}" class="btn btn-outline-secondary">
+              Cancel
+            </a>
+          </div>
+        </div>
+      </div>
+    </aside>
   </div>
-</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const GST_RATE = 0.18;
+  const customerSelect = document.getElementById('customer_id');
+  const nextBillingHint = document.getElementById('next_billing_date_hint');
+  const itemsBody = document.getElementById('invoiceItemsBody');
+  const addItemBtn = document.getElementById('addItemBtn');
+  const includeDeposit = document.getElementById('include_deposit');
+  const depositInput = document.getElementById('deposit_amount');
+  const amountDueInput = document.getElementById('amount_due');
+  const amountPaidInput = document.getElementById('amount_paid');
+
+  const money = (value) => new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR'
+  }).format(Number.isFinite(value) ? value : 0);
+
+  const amount = (value, fallback = 0) => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+  };
+
+  const escapeAttr = (value) => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const formatQty = (value) => {
+    const parsed = amount(value);
+    return Number.isInteger(parsed) ? parsed.toString() : parsed.toFixed(2);
+  };
+
+  const rowCount = () => itemsBody.querySelectorAll('tr').length;
+
+  const updateRemoveButtons = () => {
+    itemsBody.querySelectorAll('.remove-item-btn').forEach((button) => {
+      button.disabled = rowCount() <= 1;
+    });
+  };
+
+  const addItemRow = (description = '', quantity = 1, unitPrice = 0) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>
+        <input type="text" name="item_description" class="form-control item-description"
+               value="${escapeAttr(description)}" placeholder="Water purifier rental" required />
+      </td>
+      <td>
+        <input type="number" name="item_quantity" class="form-control text-end item-quantity"
+               min="0.01" step="0.01" value="${formatQty(quantity)}" required />
+      </td>
+      <td>
+        <input type="number" name="item_unit_price" class="form-control text-end item-unit-price"
+               min="0" step="0.01" value="${amount(unitPrice).toFixed(2)}" required />
+      </td>
+      <td class="text-end"><div class="invoice-line-total">&#8377;0.00</div></td>
+      <td>
+        <button type="button" class="btn btn-icon btn-sm btn-outline-danger remove-item-btn" title="Remove item">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    `;
+    itemsBody.appendChild(row);
+    row.querySelectorAll('input').forEach((input) => input.addEventListener('input', recalc));
+    row.querySelector('.remove-item-btn').addEventListener('click', () => {
+      row.remove();
+      updateRemoveButtons();
+      recalc();
+    });
+    updateRemoveButtons();
+    recalc();
+  };
+
+  const resetItems = (description, amountDue) => {
+    itemsBody.innerHTML = '';
+    addItemRow(description || 'Water Purifier Rental Services', 1, amount(amountDue));
+  };
+
+  const recalc = () => {
+    let taxableItems = 0;
+    itemsBody.querySelectorAll('tr').forEach((row) => {
+      const qty = amount(row.querySelector('.item-quantity').value, 1);
+      const rate = amount(row.querySelector('.item-unit-price').value);
+      const lineTotal = qty * rate;
+      taxableItems += lineTotal;
+      row.querySelector('.invoice-line-total').textContent = money(lineTotal);
+    });
+
+    const deposit = includeDeposit.checked ? amount(depositInput.value) : 0;
+    const taxableBase = taxableItems / (1 + GST_RATE);
+    const cgst = taxableBase * 0.09;
+    const sgst = taxableBase * 0.09;
+    const total = taxableItems + deposit;
+    const paid = amount(amountPaidInput.value);
+    const balance = Math.max(total - paid, 0);
+
+    amountDueInput.value = total.toFixed(2);
+    document.getElementById('summaryTaxableItems').textContent = money(taxableItems);
+    document.getElementById('summaryTaxableBase').textContent = money(taxableBase);
+    document.getElementById('summaryCgst').textContent = money(cgst);
+    document.getElementById('summarySgst').textContent = money(sgst);
+    document.getElementById('summaryDeposit').textContent = money(deposit);
+    document.getElementById('summaryTotal').textContent = money(total);
+    document.getElementById('summaryPaid').textContent = money(paid);
+    document.getElementById('summaryBalance').textContent = money(balance);
+  };
+
+  const loadCustomerDue = async () => {
+    const customerId = customerSelect.value;
+    if (!customerId) {
+      nextBillingHint.textContent = '';
+      resetItems('Water Purifier Rental Services', 0);
+      return;
+    }
+
+    try {
+      const response = await fetch(`{{ url_for('payments.customer_due', cust_id=0) }}`.replace('/0/', `/${customerId}/`));
+      if (!response.ok) return;
+      const data = await response.json();
+      const productName = data.plan_name || 'Water Purifier Rental Services';
+      resetItems(productName, data.monthly_rent || 0);
+      depositInput.value = amount(data.deposit).toFixed(2);
+      nextBillingHint.textContent = data.next_billing_date
+        ? `Next billing: ${data.next_billing_date}`
+        : '';
+      if (!amountPaidInput.value) {
+        amountPaidInput.value = amount(data.monthly_rent).toFixed(2);
+      }
+      recalc();
+    } catch (error) {
+      console.error('Unable to load customer due details', error);
+    }
+  };
+
+  includeDeposit.addEventListener('change', () => {
+    depositInput.disabled = !includeDeposit.checked;
+    recalc();
+  });
+  depositInput.addEventListener('input', recalc);
+  amountPaidInput.addEventListener('input', recalc);
+  addItemBtn.addEventListener('click', () => addItemRow('Product / Service', 1, 0));
+  customerSelect.addEventListener('change', loadCustomerDue);
+
+  resetItems('Water Purifier Rental Services', 0);
+  if (customerSelect.value) {
+    loadCustomerDue();
+  }
+})();
+</script>
 {% endblock %}

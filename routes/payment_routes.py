@@ -18,6 +18,92 @@ payment_bp = Blueprint('payments', __name__, url_prefix='/payments')
 PAYMENT_MODES = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Online']
 
 
+def _parse_amount(value, default=0.0):
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(amount, 0.0)
+
+
+def _default_invoice_description(customer):
+    if customer and customer.plan_name:
+        return customer.plan_name
+    return 'Water Purifier Rental Services'
+
+
+def _build_invoice_items(form, customer):
+    descriptions = form.getlist('item_description')
+    quantities = form.getlist('item_quantity')
+    unit_prices = form.getlist('item_unit_price')
+    row_count = max(len(descriptions), len(quantities), len(unit_prices))
+    items = []
+
+    for index in range(row_count):
+        description = descriptions[index].strip() if index < len(descriptions) else ''
+        quantity = _parse_amount(quantities[index] if index < len(quantities) else 1, 1.0)
+        unit_price = _parse_amount(unit_prices[index] if index < len(unit_prices) else 0, 0.0)
+        if not description and unit_price <= 0:
+            continue
+        if not description:
+            description = 'Product / Service'
+        if quantity <= 0:
+            quantity = 1.0
+        line_total = round(quantity * unit_price, 2)
+        items.append({
+            'description': description,
+            'quantity': quantity,
+            'unit_price': unit_price,
+            'line_total': line_total,
+        })
+
+    if not items:
+        fallback_total = _parse_amount(form.get('amount_due'), customer.monthly_rent)
+        items.append({
+            'description': _default_invoice_description(customer),
+            'quantity': 1.0,
+            'unit_price': fallback_total,
+            'line_total': round(fallback_total, 2),
+        })
+
+    return items
+
+
+def _payment_status(amount_paid, amount_due):
+    if amount_paid <= 0:
+        return 'Pending'
+    if amount_paid >= amount_due:
+        return 'Paid'
+    return 'Partial'
+
+
+def _invoice_summary(payment):
+    deposit_amount = _parse_amount(payment.deposit_amount)
+    invoice_items = payment.invoice_items
+    if not invoice_items:
+        fallback_total = max(_parse_amount(payment.amount_due or payment.amount_paid) - deposit_amount, 0.0)
+        invoice_items = [{
+            'description': _default_invoice_description(payment.customer),
+            'quantity': 1.0,
+            'unit_price': fallback_total,
+            'line_total': round(fallback_total, 2),
+        }]
+
+    taxable_total = round(sum(_parse_amount(item.get('line_total')) for item in invoice_items), 2)
+    invoice_tax = calculate_inclusive_gst(taxable_total)
+    invoice_amount = round(taxable_total + deposit_amount, 2)
+    balance_amount = round(max(invoice_amount - _parse_amount(payment.amount_paid), 0.0), 2)
+
+    return {
+        'invoice_items': invoice_items,
+        'deposit_amount': deposit_amount,
+        'taxable_total': taxable_total,
+        'invoice_tax': invoice_tax,
+        'invoice_amount': invoice_amount,
+        'balance_amount': balance_amount,
+    }
+
+
 # ---------------------------------------------------------------------------
 # List Payments
 # ---------------------------------------------------------------------------
@@ -101,8 +187,15 @@ def add():
             customer_id = int(request.form['customer_id'])
             customer = db.get_or_404(Customer, customer_id)
             payment_date = date.fromisoformat(request.form['payment_date'])
-            amount_paid = float(request.form['amount_paid'])
-            amount_due = float(request.form.get('amount_due', customer.monthly_rent))
+            amount_paid = _parse_amount(request.form['amount_paid'])
+            invoice_items = _build_invoice_items(request.form, customer)
+            deposit_amount = (
+                _parse_amount(request.form.get('deposit_amount'))
+                if request.form.get('include_deposit')
+                else 0.0
+            )
+            taxable_total = round(sum(item['line_total'] for item in invoice_items), 2)
+            amount_due = round(taxable_total + deposit_amount, 2)
 
             invoice_no = generate_invoice_no(payment_date)
 
@@ -125,15 +218,17 @@ def add():
                 payment_date=payment_date,
                 amount_paid=amount_paid,
                 amount_due=amount_due,
+                deposit_amount=deposit_amount,
                 payment_mode=request.form['payment_mode'],
                 transaction_id=request.form.get('transaction_id', '').strip() or None,
                 invoice_no=invoice_no,
-                payment_status='Paid' if amount_paid >= amount_due else 'Partial',
+                payment_status=_payment_status(amount_paid, amount_due),
                 days_overdue=days_overdue,
                 remark=request.form.get('remark', '').strip(),
                 collected_by=request.form.get('collected_by', current_user.full_name or current_user.username),
                 next_due_date=next_due,
             )
+            payment.invoice_items = invoice_items
             db.session.add(payment)
 
             # Update customer next_billing_date
@@ -173,13 +268,16 @@ def view(payment_id):
         return redirect(url_for('dashboard.index'))
 
     payment = db.get_or_404(Payment, payment_id)
-    invoice_amount = payment.amount_due or payment.amount_paid
-    invoice_tax = calculate_inclusive_gst(invoice_amount)
+    invoice = _invoice_summary(payment)
     return render_template(
         'payments/view.html',
         payment=payment,
-        invoice_amount=invoice_amount,
-        invoice_tax=invoice_tax,
+        invoice_items=invoice['invoice_items'],
+        deposit_amount=invoice['deposit_amount'],
+        taxable_total=invoice['taxable_total'],
+        invoice_amount=invoice['invoice_amount'],
+        invoice_tax=invoice['invoice_tax'],
+        balance_amount=invoice['balance_amount'],
         active_page='payments',
     )
 
@@ -200,6 +298,10 @@ def customer_due(cust_id):
         'monthly_rent': customer.monthly_rent,
         'next_billing_date': customer.next_billing_date.isoformat() if customer.next_billing_date else '',
         'cust_name': customer.cust_name,
+        'plan_name': customer.plan_name,
+        'payment_freq': customer.payment_freq,
+        'deposit': customer.deposit or 0,
+        'machine_serial_no': customer.machine_serial_no or '',
     })
 
 

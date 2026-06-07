@@ -59,7 +59,12 @@
           </td>
           <td>{{ p.payment_date.strftime('%d %b %Y') }}</td>
           <td class="fw-600 text-success">₹{{ '{:,.0f}'.format(p.amount_paid) }}</td>
-          <td class="text-muted">₹{{ '{:,.0f}'.format(p.amount_due) }}</td>
+          <td class="text-muted">
+            ₹{{ '{:,.0f}'.format(p.amount_due) }}
+            {% if p.deposit_amount %}
+              <br><small>Incl. deposit &#8377;{{ '{:,.0f}'.format(p.deposit_amount) }}</small>
+            {% endif %}
+          </td>
           <td><small>{{ p.payment_mode }}</small></td>
           <td>
             <span class="status-badge status-{{ p.payment_status | lower }}">{{ p.payment_status }}</span>

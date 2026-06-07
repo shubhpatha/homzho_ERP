@@ -61,6 +61,11 @@ def export_payments_csv() -> bytes:
             'Payment Date': p.payment_date,
             'Amount Paid': p.amount_paid,
             'Amount Due': p.amount_due,
+            'Deposit Amount': p.deposit_amount or 0,
+            'Invoice Items': '; '.join(
+                f"{item['description']} x {item['quantity']} @ {item['unit_price']}"
+                for item in p.invoice_items
+            ),
             'Mode': p.payment_mode,
             'Transaction ID': p.transaction_id,
             'Status': p.payment_status,

@@ -32,7 +32,9 @@ static/uploads/
 
 # ── Flask / Migrations auto-generated ─────────────────────────
 instance/
-migrations/versions/
+migrations/versions/*
+!migrations/versions/8f7c2a1b9d04_payment_invoice_items.py
+migrations/versions/__pycache__/
 
 # ── OS files ──────────────────────────────────────────────────
 .DS_Store

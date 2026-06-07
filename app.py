@@ -174,6 +174,7 @@ def create_app(config_name: str = None) -> Flask:
     # Create any missing lightweight master tables and seed defaults.
     with app.app_context():
         _ensure_user_permissions_column()
+        _ensure_payment_invoice_columns()
         _ensure_default_plans()
 
     return app
@@ -188,6 +189,26 @@ def _ensure_user_permissions_column():
     columns = {col['name'] for col in inspector.get_columns('users')}
     if 'custom_permissions' not in columns:
         db.session.execute(text('ALTER TABLE users ADD COLUMN custom_permissions TEXT'))
+        db.session.commit()
+
+
+def _ensure_payment_invoice_columns():
+    """Add editable invoice fields for existing SQLite installs."""
+    from sqlalchemy import inspect, text
+
+    db.create_all()
+    inspector = inspect(db.engine)
+    columns = {col['name'] for col in inspector.get_columns('payments')}
+    changed = False
+    if 'invoice_items_json' not in columns:
+        db.session.execute(text('ALTER TABLE payments ADD COLUMN invoice_items_json TEXT'))
+        changed = True
+    if 'deposit_amount' not in columns:
+        db.session.execute(
+            text('ALTER TABLE payments ADD COLUMN deposit_amount FLOAT NOT NULL DEFAULT 0')
+        )
+        changed = True
+    if changed:
         db.session.commit()
 
 
