@@ -64,6 +64,9 @@
             {% if p.deposit_amount %}
               <br><small>Incl. deposit &#8377;{{ '{:,.0f}'.format(p.deposit_amount) }}</small>
             {% endif %}
+            {% if p.is_gst_invoice is sameas false %}
+              <br><small>No GST</small>
+            {% endif %}
           </td>
           <td><small>{{ p.payment_mode }}</small></td>
           <td>

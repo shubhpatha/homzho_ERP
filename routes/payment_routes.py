@@ -77,8 +77,20 @@ def _payment_status(amount_paid, amount_due):
     return 'Partial'
 
 
+def _zero_gst_summary(amount):
+    gross_amount = _parse_amount(amount)
+    return {
+        'gross_amount': gross_amount,
+        'taxable_amount': gross_amount,
+        'cgst_amount': 0.0,
+        'sgst_amount': 0.0,
+        'total_tax_amount': 0.0,
+    }
+
+
 def _invoice_summary(payment):
     deposit_amount = _parse_amount(payment.deposit_amount)
+    is_gst_invoice = True if payment.is_gst_invoice is None else bool(payment.is_gst_invoice)
     invoice_items = payment.invoice_items
     if not invoice_items:
         fallback_total = max(_parse_amount(payment.amount_due or payment.amount_paid) - deposit_amount, 0.0)
@@ -90,11 +102,12 @@ def _invoice_summary(payment):
         }]
 
     taxable_total = round(sum(_parse_amount(item.get('line_total')) for item in invoice_items), 2)
-    invoice_tax = calculate_inclusive_gst(taxable_total)
+    invoice_tax = calculate_inclusive_gst(taxable_total) if is_gst_invoice else _zero_gst_summary(taxable_total)
     invoice_amount = round(taxable_total + deposit_amount, 2)
     balance_amount = round(max(invoice_amount - _parse_amount(payment.amount_paid), 0.0), 2)
 
     return {
+        'is_gst_invoice': is_gst_invoice,
         'invoice_items': invoice_items,
         'deposit_amount': deposit_amount,
         'taxable_total': taxable_total,
@@ -189,6 +202,7 @@ def add():
             payment_date = date.fromisoformat(request.form['payment_date'])
             amount_paid = _parse_amount(request.form['amount_paid'])
             invoice_items = _build_invoice_items(request.form, customer)
+            is_gst_invoice = request.form.get('invoice_tax_mode', 'gst') == 'gst'
             deposit_amount = (
                 _parse_amount(request.form.get('deposit_amount'))
                 if request.form.get('include_deposit')
@@ -219,6 +233,7 @@ def add():
                 amount_paid=amount_paid,
                 amount_due=amount_due,
                 deposit_amount=deposit_amount,
+                is_gst_invoice=is_gst_invoice,
                 payment_mode=request.form['payment_mode'],
                 transaction_id=request.form.get('transaction_id', '').strip() or None,
                 invoice_no=invoice_no,
@@ -272,6 +287,7 @@ def view(payment_id):
     return render_template(
         'payments/view.html',
         payment=payment,
+        is_gst_invoice=invoice['is_gst_invoice'],
         invoice_items=invoice['invoice_items'],
         deposit_amount=invoice['deposit_amount'],
         taxable_total=invoice['taxable_total'],

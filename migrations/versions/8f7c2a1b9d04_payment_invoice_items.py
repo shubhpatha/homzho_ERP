@@ -22,9 +22,13 @@ def upgrade():
         batch_op.add_column(
             sa.Column('deposit_amount', sa.Float(), nullable=False, server_default='0')
         )
+        batch_op.add_column(
+            sa.Column('is_gst_invoice', sa.Boolean(), nullable=False, server_default='1')
+        )
 
 
 def downgrade():
     with op.batch_alter_table('payments', schema=None) as batch_op:
+        batch_op.drop_column('is_gst_invoice')
         batch_op.drop_column('deposit_amount')
         batch_op.drop_column('invoice_items_json')

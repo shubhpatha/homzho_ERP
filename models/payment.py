@@ -20,6 +20,7 @@ class Payment(db.Model):
     amount_due = db.Column(db.Float, nullable=False)
     invoice_items_json = db.Column(db.Text, nullable=True)
     deposit_amount = db.Column(db.Float, nullable=False, default=0.0)
+    is_gst_invoice = db.Column(db.Boolean, nullable=False, default=True)
     payment_status = db.Column(db.String(20), nullable=False, default='Paid')
     # Statuses: Paid, Partial, Overdue, Pending
     days_overdue = db.Column(db.Integer, default=0)

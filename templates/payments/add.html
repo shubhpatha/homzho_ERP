@@ -61,12 +61,57 @@
     font-weight: 700;
     border-bottom: 0;
   }
+  .tax-mode-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .tax-mode-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    cursor: pointer;
+    min-height: 74px;
+    transition: border-color .2s, background .2s;
+  }
+  .tax-mode-card:hover {
+    border-color: var(--primary);
+  }
+  .tax-mode-card:has(.form-check-input:checked) {
+    background: var(--primary-light);
+    border-color: var(--primary);
+  }
+  .tax-mode-card .form-check-input {
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .tax-mode-title {
+    display: block;
+    color: var(--text);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .tax-mode-help {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 2px;
+  }
   @media (max-width: 992px) {
     .invoice-builder-grid {
       grid-template-columns: 1fr;
     }
     .summary-panel {
       position: static;
+    }
+  }
+  @media (max-width: 576px) {
+    .tax-mode-options {
+      grid-template-columns: 1fr;
     }
   }
 </style>
@@ -118,6 +163,28 @@
                 <option value="{{ m }}">{{ m }}</option>
                 {% endfor %}
               </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Bill Type</label>
+              <div class="tax-mode-options">
+                <label class="tax-mode-card" for="invoice_tax_mode_gst">
+                  <input class="form-check-input invoice-tax-mode" type="radio" name="invoice_tax_mode"
+                         id="invoice_tax_mode_gst" value="gst" checked>
+                  <span>
+                    <span class="tax-mode-title">With GST</span>
+                    <span class="tax-mode-help">Generate a tax invoice with CGST and SGST breakup.</span>
+                  </span>
+                </label>
+                <label class="tax-mode-card" for="invoice_tax_mode_non_gst">
+                  <input class="form-check-input invoice-tax-mode" type="radio" name="invoice_tax_mode"
+                         id="invoice_tax_mode_non_gst" value="non_gst">
+                  <span>
+                    <span class="tax-mode-title">Without GST</span>
+                    <span class="tax-mode-help">Generate a plain invoice without GST lines.</span>
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -205,18 +272,18 @@
         <div class="card-header"><i class="bi bi-calculator text-primary"></i> Invoice Summary</div>
         <div class="card-body">
           <div class="summary-row">
-            <span>Taxable items</span>
+            <span id="summaryItemsLabel">Taxable items</span>
             <strong id="summaryTaxableItems">&#8377;0.00</strong>
           </div>
-          <div class="summary-row">
+          <div class="summary-row gst-summary-row">
             <span>Cost before GST</span>
             <strong id="summaryTaxableBase">&#8377;0.00</strong>
           </div>
-          <div class="summary-row">
+          <div class="summary-row gst-summary-row">
             <span>CGST @ 9%</span>
             <strong id="summaryCgst">&#8377;0.00</strong>
           </div>
-          <div class="summary-row">
+          <div class="summary-row gst-summary-row">
             <span>SGST @ 9%</span>
             <strong id="summarySgst">&#8377;0.00</strong>
           </div>
@@ -265,6 +332,7 @@
   const depositInput = document.getElementById('deposit_amount');
   const amountDueInput = document.getElementById('amount_due');
   const amountPaidInput = document.getElementById('amount_paid');
+  const taxModeInputs = document.querySelectorAll('.invoice-tax-mode');
 
   const money = (value) => new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -334,6 +402,7 @@
   };
 
   const recalc = () => {
+    const isGstInvoice = document.querySelector('.invoice-tax-mode:checked')?.value !== 'non_gst';
     let taxableItems = 0;
     itemsBody.querySelectorAll('tr').forEach((row) => {
       const qty = amount(row.querySelector('.item-quantity').value, 1);
@@ -344,14 +413,18 @@
     });
 
     const deposit = includeDeposit.checked ? amount(depositInput.value) : 0;
-    const taxableBase = taxableItems / (1 + GST_RATE);
-    const cgst = taxableBase * 0.09;
-    const sgst = taxableBase * 0.09;
+    const taxableBase = isGstInvoice ? taxableItems / (1 + GST_RATE) : taxableItems;
+    const cgst = isGstInvoice ? taxableBase * 0.09 : 0;
+    const sgst = isGstInvoice ? taxableBase * 0.09 : 0;
     const total = taxableItems + deposit;
     const paid = amount(amountPaidInput.value);
     const balance = Math.max(total - paid, 0);
 
     amountDueInput.value = total.toFixed(2);
+    document.getElementById('summaryItemsLabel').textContent = isGstInvoice ? 'Taxable items' : 'Bill items';
+    document.querySelectorAll('.gst-summary-row').forEach((row) => {
+      row.classList.toggle('d-none', !isGstInvoice);
+    });
     document.getElementById('summaryTaxableItems').textContent = money(taxableItems);
     document.getElementById('summaryTaxableBase').textContent = money(taxableBase);
     document.getElementById('summaryCgst').textContent = money(cgst);
@@ -395,6 +468,7 @@
   });
   depositInput.addEventListener('input', recalc);
   amountPaidInput.addEventListener('input', recalc);
+  taxModeInputs.forEach((input) => input.addEventListener('change', recalc));
   addItemBtn.addEventListener('click', () => addItemRow('Product / Service', 1, 0));
   customerSelect.addEventListener('change', loadCustomerDue);
 

@@ -62,6 +62,7 @@ def export_payments_csv() -> bytes:
             'Amount Paid': p.amount_paid,
             'Amount Due': p.amount_due,
             'Deposit Amount': p.deposit_amount or 0,
+            'GST Invoice': 'Yes' if p.is_gst_invoice is not False else 'No',
             'Invoice Items': '; '.join(
                 f"{item['description']} x {item['quantity']} @ {item['unit_price']}"
                 for item in p.invoice_items

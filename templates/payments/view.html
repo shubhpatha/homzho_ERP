@@ -320,7 +320,7 @@
         </div>
       </div>
       <div class="invoice-title-box">
-        <div class="invoice-title">TAX INVOICE</div>
+        <div class="invoice-title">{{ 'TAX INVOICE' if is_gst_invoice else 'INVOICE' }}</div>
         <div class="invoice-number">{{ payment.invoice_no }}</div>
       </div>
     </header>
@@ -362,6 +362,10 @@
             <span>Status</span>
             <strong>{{ payment.payment_status }}</strong>
           </div>
+          <div class="invoice-detail-row">
+            <span>Bill Type</span>
+            <strong>{{ 'With GST' if is_gst_invoice else 'Without GST' }}</strong>
+          </div>
           {% if payment.next_due_date %}
           <div class="invoice-detail-row">
             <span>Next Due Date</span>
@@ -379,7 +383,7 @@
               <th>Description</th>
               <th class="num" style="width: 88px;">Qty</th>
               <th class="num" style="width: 120px;">Rate</th>
-              <th class="num" style="width: 120px;">GST</th>
+              <th class="num" style="width: 120px;">{{ 'GST' if is_gst_invoice else 'Tax' }}</th>
               <th class="num" style="width: 130px;">Amount</th>
             </tr>
           </thead>
@@ -398,7 +402,7 @@
               </td>
               <td class="num">{{ '{:,.2f}'.format(item.quantity) }}</td>
               <td class="num">&#8377;{{ '{:,.2f}'.format(item.unit_price) }}</td>
-              <td class="num">18%</td>
+              <td class="num">{{ '18%' if is_gst_invoice else 'No GST' }}</td>
               <td class="num"><strong>&#8377;{{ '{:,.2f}'.format(item.line_total) }}</strong></td>
             </tr>
             {% endfor %}
@@ -423,6 +427,9 @@
         <div class="invoice-note-box">
           <strong>Terms & Conditions</strong><br>
           https://homzho.odoo.com/terms<br>
+          {% if not is_gst_invoice %}
+          <span>GST has not been charged on this invoice.</span><br>
+          {% endif %}
           {% if payment.remark %}
           <span>Notes: {{ payment.remark }}</span><br>
           {% endif %}
@@ -431,9 +438,10 @@
 
         <div class="invoice-total-box">
           <div class="invoice-total-row">
-            <span>Taxable items (incl. GST)</span>
+            <span>{{ 'Taxable items (incl. GST)' if is_gst_invoice else 'Bill items' }}</span>
             <strong>&#8377;{{ '{:,.2f}'.format(taxable_total) }}</strong>
           </div>
+          {% if is_gst_invoice %}
           <div class="invoice-total-row">
             <span>Cost before GST</span>
             <strong>&#8377;{{ '{:,.2f}'.format(invoice_tax.taxable_amount) }}</strong>
@@ -446,6 +454,7 @@
             <span>SGST @ 9%</span>
             <strong>&#8377;{{ '{:,.2f}'.format(invoice_tax.sgst_amount) }}</strong>
           </div>
+          {% endif %}
           {% if deposit_amount > 0 %}
           <div class="invoice-total-row">
             <span>Deposit</span>

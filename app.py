@@ -208,6 +208,11 @@ def _ensure_payment_invoice_columns():
             text('ALTER TABLE payments ADD COLUMN deposit_amount FLOAT NOT NULL DEFAULT 0')
         )
         changed = True
+    if 'is_gst_invoice' not in columns:
+        db.session.execute(
+            text('ALTER TABLE payments ADD COLUMN is_gst_invoice BOOLEAN NOT NULL DEFAULT 1')
+        )
+        changed = True
     if changed:
         db.session.commit()
 
