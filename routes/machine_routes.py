@@ -232,3 +232,49 @@ def export_csv():
     csv = pd.DataFrame(rows).to_csv(index=False).encode('utf-8-sig')
     return Response(csv, mimetype='text/csv',
                     headers={'Content-Disposition': 'attachment; filename=machines.csv'})
+
+
+@machine_bp.route('/import/template')
+@login_required
+def import_template():
+    """Download blank CSV import template."""
+    if not current_user.has_permission('machines'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    from services.export_service import get_machine_import_template
+    return Response(
+        get_machine_import_template(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=machine_import_template.csv'},
+    )
+
+
+@machine_bp.route('/import', methods=['POST'])
+@login_required
+def import_csv():
+    """Import machines from CSV with validation."""
+    if not current_user.has_permission('machines'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('machines.index'))
+
+    file = request.files.get('csv_file')
+    if not file or not file.filename.endswith('.csv'):
+        flash('Please upload a valid CSV file.', 'danger')
+        return redirect(url_for('machines.add'))
+
+    from services.export_service import import_machines_csv
+    result = import_machines_csv(file.stream)
+    if result['success']:
+        log_activity(current_user.username, 'Import', 'Machine',
+                     remarks=f'Imported {result["count"]} machines', ip_address=request.remote_addr)
+        flash(f'Successfully imported {result["count"]} machines!', 'success')
+        return redirect(url_for('machines.index'))
+    else:
+        return render_template(
+            'machines/add.html',
+            statuses=MACHINE_STATUSES,
+            conditions=MACHINE_CONDITIONS,
+            active_page='machines',
+            errors=result['errors']
+        )

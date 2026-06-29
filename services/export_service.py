@@ -146,6 +146,99 @@ def get_machine_import_template() -> bytes:
     return df.to_csv(index=False).encode('utf-8-sig')
 
 
+def import_machines_csv(file_stream) -> dict:
+    """
+    Parse, validate, and bulk-insert machines from CSV.
+    Returns {'success': True, 'count': N} or {'success': False, 'errors': [...]}
+    """
+    from models.machine import Machine
+
+    try:
+        df = pd.read_csv(file_stream, dtype=str).fillna('')
+    except Exception as e:
+        return {'success': False, 'errors': [f'Could not parse CSV: {e}']}
+
+    required = ['machine_serial_no', 'model_name']
+    errors = []
+
+    for col in required:
+        if col not in df.columns:
+            errors.append(f'Missing required column: {col}')
+
+    if errors:
+        return {'success': False, 'errors': errors}
+
+    valid_statuses = {'Available', 'Installed', 'Under Maintenance', 'Scrapped'}
+    valid_conditions = {'Good', 'Fair', 'Poor'}
+
+    records = []
+    seen_serials = set()
+    
+    for i, row in df.iterrows():
+        line = i + 2  # 1-indexed, skipping header
+        row_errors = []
+
+        serial_no = row.get('machine_serial_no', '').strip()
+        if not serial_no:
+            row_errors.append(f'Row {line}: machine_serial_no is required.')
+        elif serial_no in seen_serials:
+            row_errors.append(f'Row {line}: Duplicate machine_serial_no "{serial_no}" in CSV.')
+        else:
+            seen_serials.add(serial_no)
+            if Machine.query.filter_by(machine_serial_no=serial_no).first():
+                row_errors.append(f'Row {line}: Machine serial number "{serial_no}" already exists in database.')
+
+        model_name = row.get('model_name', '').strip()
+        if not model_name:
+            row_errors.append(f'Row {line}: model_name is required.')
+
+        status = row.get('machine_status', '').strip()
+        if status and status not in valid_statuses:
+            row_errors.append(f"Row {line}: Invalid machine_status '{status}'. Must be one of: {', '.join(valid_statuses)}.")
+        elif not status:
+            status = 'Available'
+
+        condition = row.get('machine_condition', '').strip()
+        if condition and condition not in valid_conditions:
+            row_errors.append(f"Row {line}: Invalid machine_condition '{condition}'. Must be one of: {', '.join(valid_conditions)}.")
+        elif not condition:
+            condition = 'Good'
+
+        tds_val = None
+        tds_str = row.get('tds_level', '').strip()
+        if tds_str:
+            try:
+                tds_val = float(tds_str)
+            except ValueError:
+                row_errors.append(f'Row {line}: tds_level must be a numeric value.')
+
+        remarks = row.get('remarks', '').strip()
+
+        if row_errors:
+            errors.extend(row_errors)
+            continue
+
+        records.append(Machine(
+            machine_serial_no=serial_no,
+            model_name=model_name,
+            machine_status=status,
+            machine_condition=condition,
+            tds_level=tds_val,
+            remarks=remarks
+        ))
+
+    if errors:
+        return {'success': False, 'errors': errors}
+
+    try:
+        db.session.bulk_save_objects(records)
+        db.session.commit()
+        return {'success': True, 'count': len(records)}
+    except Exception as exc:
+        db.session.rollback()
+        return {'success': False, 'errors': [str(exc)]}
+
+
 # ---------------------------------------------------------------------------
 # CSV import with full validation
 # ---------------------------------------------------------------------------

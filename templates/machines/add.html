@@ -10,10 +10,14 @@
     </ol></nav>
     <h1 class="page-title">Add New Machine</h1>
   </div>
+  <a href="{{ url_for('machines.import_template') }}" class="btn btn-outline-success">
+    <i class="bi bi-download"></i> Download Template
+  </a>
 </div>
 
-<div class="row justify-content-center">
-  <div class="col-12 col-lg-8">
+<div class="row g-3">
+  <!-- Left Column: Single Machine Form -->
+  <div class="col-12 col-lg-7">
     <div class="card">
       <div class="card-header"><i class="bi bi-cpu text-primary"></i> Machine Details</div>
       <div class="card-body">
@@ -62,5 +66,55 @@
       </div>
     </div>
   </div>
+
+  <!-- Right Column: Bulk Import -->
+  <div class="col-12 col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-upload text-success"></i> Bulk Import via CSV</div>
+      <div class="card-body">
+        <div class="info-box info-box-info mb-3 d-flex align-items-start">
+          <i class="bi bi-info-circle-fill text-info me-2 mt-1"></i>
+          <div class="small text-muted">All rows are validated before insertion. If any row fails, the entire import is aborted.</div>
+        </div>
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('machines.import_csv') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="mb-3">
+            <label class="form-label">Select CSV File</label>
+            <input type="file" name="csv_file" class="form-control" accept=".csv" required />
+          </div>
+          <button type="submit" class="btn btn-success w-100">
+            <i class="bi bi-cloud-upload me-2"></i> Import Machines
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-check text-warning"></i> Template Columns</div>
+      <div class="card-body">
+        <ul class="mb-0 small">
+          <li><code>machine_serial_no</code> <span class="text-danger">*</span> – Unique serial number</li>
+          <li><code>model_name</code> <span class="text-danger">*</span> – Name/model of machine</li>
+          <li><code>machine_status</code> – e.g. Available, Under Maintenance, Scrapped</li>
+          <li><code>machine_condition</code> – e.g. Good, Fair, Poor</li>
+          <li><code>tds_level</code> – Numeric base TDS level</li>
+          <li><code>remarks</code> – Any notes/comments</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </div>
+
+{% if errors %}
+<div class="card mt-3 border-danger">
+  <div class="card-header bg-danger text-white"><i class="bi bi-x-circle-fill"></i> Import Failed – {{ errors | length }} Error(s)</div>
+  <div class="card-body" style="max-height:400px;overflow-y:auto">
+    <ul class="mb-0 small">
+      {% for e in errors %}
+      <li class="text-danger">{{ e }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
