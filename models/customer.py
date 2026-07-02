@@ -53,6 +53,10 @@ class Customer(db.Model):
     last_service_date = db.Column(db.Date, nullable=True)
     next_service_date = db.Column(db.Date, nullable=True)
     next_billing_date = db.Column(db.Date, nullable=True)
+    
+    # Referral Tracking
+    referred_by_id = db.Column(db.Integer, db.ForeignKey('customers.cust_id'), nullable=True)
+    referrer = db.relationship('Customer', remote_side=[cust_id], foreign_keys=[referred_by_id], backref='referrals')
 
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

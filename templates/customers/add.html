@@ -16,6 +16,10 @@
 
 <form method="POST" action="{{ url_for('customers.add') }}" novalidate>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  {# Carry through the lead ID if converting from a lead so we can mark it Converted on save #}
+  {% if form_data.get('from_lead') %}
+  <input type="hidden" name="from_lead" value="{{ form_data.get('from_lead') }}" />
+  {% endif %}
   <div class="row g-3">
 
     <!-- Customer Info -->
@@ -45,6 +49,17 @@
               {% if errors.email_id %}
               <div class="invalid-feedback">{{ errors.email_id }}</div>
               {% endif %}
+            </div>
+            <div class="col-12">
+              <label class="form-label">Referred By (optional)</label>
+              <select name="referred_by_id" class="form-select">
+                <option value="">— Not a referral —</option>
+                {% if all_customers %}
+                  {% for c in all_customers %}
+                  <option value="{{ c.cust_id }}" {% if form_data.get('referred_by_id')|string == c.cust_id|string %}selected{% endif %}>{{ c.cust_name }} ({{ c.contact_number }})</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
             </div>
             <div class="col-12">
               <label class="form-label">Address</label>

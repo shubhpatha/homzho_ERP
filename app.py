@@ -68,6 +68,7 @@ def create_app(config_name: str = None) -> Flask:
     from routes.reminder_routes import reminder_bp
     from routes.report_routes import report_bp
     from routes.settings_routes import settings_bp
+    from routes.lead_routes import lead_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -80,6 +81,7 @@ def create_app(config_name: str = None) -> Flask:
     app.register_blueprint(reminder_bp)
     app.register_blueprint(report_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(lead_bp)
 
     # -----------------------------------------------------------------------
     # Global Search endpoint
@@ -176,6 +178,7 @@ def create_app(config_name: str = None) -> Flask:
         _ensure_user_permissions_column()
         _ensure_payment_invoice_columns()
         _ensure_default_plans()
+        _ensure_leads_and_referrals()
 
     return app
 
@@ -236,6 +239,36 @@ def _ensure_default_plans():
             changed = True
     if changed:
         db.session.commit()
+
+
+def _ensure_leads_and_referrals():
+    """Ensure the leads table exists and all new columns are present."""
+    from sqlalchemy import inspect, text
+
+    db.create_all()  # Creates leads table if it doesn't exist
+    inspector = inspect(db.engine)
+
+    # Add referred_by_id to customers if missing
+    if 'customers' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('customers')}
+        if 'referred_by_id' not in columns:
+            try:
+                db.session.execute(text('ALTER TABLE customers ADD COLUMN referred_by_id INTEGER REFERENCES customers(cust_id)'))
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Migration error for referred_by_id: {e}")
+
+    # Add next_contact_date to leads if missing
+    if 'leads' in inspector.get_table_names():
+        lead_columns = {col['name'] for col in inspector.get_columns('leads')}
+        if 'next_contact_date' not in lead_columns:
+            try:
+                db.session.execute(text('ALTER TABLE leads ADD COLUMN next_contact_date DATE'))
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Migration error for next_contact_date: {e}")
 
 
 def _setup_logging(app: Flask):

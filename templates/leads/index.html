@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Leads – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Lead Management</h1>
+    <p class="page-subtitle">Track and convert prospective customers</p>
+  </div>
+  <div class="page-actions">
+    {% if current_user.has_permission('customers') %}
+    <a href="{{ url_for('leads.add') }}" class="btn btn-primary"><i class="bi bi-person-plus-fill"></i> Add Lead</a>
+    {% endif %}
+  </div>
+</div>
+
+<form method="GET" class="filter-bar mb-3 flex-wrap gap-2">
+  <input type="text" name="search" class="form-control" placeholder="&#128269; Name, contact…" value="{{ search }}" style="min-width:160px;">
+  <select name="status" class="form-select" style="min-width:130px;">
+    <option value="">All Statuses</option>
+    {% for s in statuses %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <select name="score" class="form-select" style="min-width:120px;">
+    <option value="">All Scores</option>
+    {% for sc in scores %}
+    <option value="{{ sc }}" {% if score_filter == sc %}selected{% endif %}>{{ sc }}</option>
+    {% endfor %}
+  </select>
+  {# Next Contact Date filter #}
+  <div class="input-group" style="max-width:200px;">
+    <span class="input-group-text bg-white"><i class="bi bi-calendar-event text-primary"></i></span>
+    <input type="date" name="contact_date" class="form-control"
+           title="Filter by Next Contact Date"
+           value="{{ contact_date_filter }}"
+           placeholder="Next Contact Date">
+  </div>
+  <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+  <a href="{{ url_for('leads.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+</form>
+
+{# Quick-filter badges for today / overdue #}
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  <a href="{{ url_for('leads.index', contact_date=today.isoformat(), status=status_filter, score=score_filter, search=search) }}"
+     class="btn btn-sm btn-outline-success {% if contact_date_filter == today.isoformat() %}active{% endif %}">
+    <i class="bi bi-telephone-fill"></i> Due Today
+  </a>
+</div>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact</th>
+          <th>Score</th>
+          <th>Status</th>
+          <th>Next Contact</th>
+          <th>Added On</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+        {% set overdue = lead.next_contact_date and lead.next_contact_date < today %}
+        {% set due_today = lead.next_contact_date and lead.next_contact_date == today %}
+        <tr onclick="window.location='{{ url_for('leads.view', lead_id=lead.lead_id) }}'"
+            style="cursor:pointer;"
+            class="{% if overdue %}table-danger{% elif due_today %}table-warning{% endif %}">
+          <td class="fw-600 text-primary">{{ lead.name }}</td>
+          <td>{{ lead.contact_number }}</td>
+          <td>
+            {% if lead.score == 'Hot' %}
+            <span class="badge bg-danger"><i class="bi bi-fire"></i> Hot</span>
+            {% elif lead.score == 'Warm' %}
+            <span class="badge bg-warning text-dark"><i class="bi bi-brightness-high"></i> Warm</span>
+            {% else %}
+            <span class="badge bg-info text-dark"><i class="bi bi-snow"></i> Cold</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge bg-{% if lead.status == 'Converted' %}success{% elif lead.status == 'Lost' %}secondary{% else %}primary{% endif %}">
+              {{ lead.status }}
+            </span>
+          </td>
+          <td>
+            {% if lead.next_contact_date %}
+              {% if overdue %}
+              <span class="text-danger fw-600"><i class="bi bi-exclamation-circle-fill"></i> {{ lead.next_contact_date.strftime('%d %b %Y') }}</span>
+              {% elif due_today %}
+              <span class="text-warning fw-600"><i class="bi bi-telephone-fill"></i> Today</span>
+              {% else %}
+              <span class="text-success"><i class="bi bi-calendar-check"></i> {{ lead.next_contact_date.strftime('%d %b %Y') }}</span>
+              {% endif %}
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="text-muted">{{ lead.created_at.strftime('%d %b %Y') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-5">No leads found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}–{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</small>
+    <nav><ul class="pagination pagination-sm mb-0">
+      {% if pagination.has_prev %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('leads.index', page=pagination.prev_num, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter) }}">‹</a></li>
+      {% endif %}
+      {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('leads.index', page=p, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter) }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('leads.index', page=pagination.next_num, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter) }}">›</a></li>
+      {% endif %}
+    </ul></nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

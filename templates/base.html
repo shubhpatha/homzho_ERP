@@ -53,6 +53,16 @@
 
     <li class="nav-item">
       {% if current_user.has_permission('customers') %}
+      <a href="{{ url_for('leads.index') }}"
+         class="nav-link {% if active_page == 'leads' %}active{% endif %}">
+        <i class="bi bi-person-lines-fill"></i>
+        <span>Leads</span>
+      </a>
+      {% endif %}
+    </li>
+
+    <li class="nav-item">
+      {% if current_user.has_permission('customers') %}
       <a href="{{ url_for('customers.index') }}"
          class="nav-link {% if active_page == 'customers' %}active{% endif %}">
         <i class="bi bi-people-fill"></i>
@@ -201,7 +211,7 @@
         {% for category, message in messages %}
           <div class="alert alert-{{ category }} alert-dismissible fade show flash-alert" role="alert">
             <i class="bi bi-{% if category == 'success' %}check-circle-fill{% elif category == 'danger' %}exclamation-triangle-fill{% elif category == 'warning' %}exclamation-circle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
-            {{ message }}
+            {{ message|safe }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
           </div>
         {% endfor %}
@@ -222,7 +232,7 @@
       <div class="position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index:9999;width:420px">
         {% for category, message in messages %}
           <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
+            {{ message|safe }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
           </div>
         {% endfor %}

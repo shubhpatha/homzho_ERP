@@ -65,9 +65,12 @@
           <td>{{ m.customer_feedback or '—' }}</td>
           <td><span class="text-danger">₹{{ '{:,.0f}'.format(m.main_exp + m.travel_exp) }}</span></td>
           <td>{{ m.next_service_date.strftime('%d %b %Y') if m.next_service_date else '—' }}</td>
-          <td>
+          <td class="text-nowrap">
             {% if m.image_path %}
             <a href="{{ url_for('static', filename=m.image_path) }}" target="_blank" class="btn btn-sm btn-icon btn-outline-secondary" title="View Image"><i class="bi bi-image"></i></a>
+            {% endif %}
+            {% if m.customer and m.customer.contact_number %}
+            <a href="https://wa.me/91{{ m.customer.contact_number | replace(' ', '') | replace('+91', '') }}?text=Hi%20{{ m.customer.cust_name | urlencode }},%0A%0AWe%20hope%20you%27re%20satisfied%20with%20your%20recent%20service.%20Could%20you%20please%20take%20a%20moment%20to%20leave%20us%20a%20Google%20Review?%20It%20helps%20us%20a%20lot!%0A%0AThank%20you,%0AHomzho%20Team" target="_blank" class="btn btn-sm btn-icon btn-outline-success ms-1" title="Request Google Review"><i class="bi bi-whatsapp"></i></a>
             {% endif %}
           </td>
         </tr>

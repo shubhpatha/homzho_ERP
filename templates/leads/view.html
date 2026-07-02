@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}View Lead – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('leads.index') }}">Leads</a></li>
+        <li class="breadcrumb-item active">{{ lead.name }}</li>
+      </ol>
+    </nav>
+    <div class="d-flex align-items-center gap-3">
+      <h1 class="page-title mb-0">{{ lead.name }}</h1>
+      <span class="badge bg-{% if lead.status == 'Converted' %}success{% elif lead.status == 'Lost' %}secondary{% else %}primary{% endif %} fs-6">{{ lead.status }}</span>
+      
+      {% if lead.score == 'Hot' %}
+      <span class="badge bg-danger fs-6"><i class="bi bi-fire"></i> Hot</span>
+      {% elif lead.score == 'Warm' %}
+      <span class="badge bg-warning text-dark fs-6"><i class="bi bi-brightness-high"></i> Warm</span>
+      {% else %}
+      <span class="badge bg-info text-dark fs-6"><i class="bi bi-snow"></i> Cold</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="page-actions">
+    {% if lead.status != 'Converted' %}
+    <a href="{{ url_for('leads.edit', lead_id=lead.lead_id) }}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Edit Lead</a>
+    <a href="{{ wa_link }}" target="_blank" class="btn btn-success"><i class="bi bi-whatsapp"></i> WhatsApp Follow-up</a>
+    <a href="{{ url_for('leads.convert', lead_id=lead.lead_id) }}" class="btn btn-primary"><i class="bi bi-box-arrow-in-right"></i> Convert to Customer</a>
+    {% else %}
+    <span class="text-muted"><i class="bi bi-check-circle-fill text-success"></i> Converted</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-person-lines-fill text-primary"></i> Contact Info</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label text-muted mb-0">Phone</label>
+          <div class="fw-500 fs-5"><a href="tel:{{ lead.contact_number }}" class="text-decoration-none">{{ lead.contact_number }}</a></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-muted mb-0">Email</label>
+          <div class="fw-500">{{ lead.email_id or '—' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-diagram-2 text-primary"></i> Lead Details</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label text-muted mb-0">Source</label>
+          <div class="fw-500">{{ lead.source }}</div>
+        </div>
+        {% if lead.referrer %}
+        <div class="mb-3">
+          <label class="form-label text-muted mb-0">Referred By</label>
+          <div class="fw-500"><a href="{{ url_for('customers.view', cust_id=lead.referred_by_id) }}">{{ lead.referrer.cust_name }}</a></div>
+        </div>
+        {% endif %}
+        <div class="mb-3">
+          <label class="form-label text-muted mb-0">Added On</label>
+          <div class="fw-500">{{ lead.created_at.strftime('%d %b %Y, %I:%M %p') }}</div>
+        </div>
+        <div class="mb-0">
+          <label class="form-label text-muted mb-1"><i class="bi bi-calendar-event"></i> Next Contact Date</label>
+          {% set today = today if today is defined else none %}
+          {% if lead.next_contact_date %}
+            {% if today and lead.next_contact_date < today %}
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-danger fs-6 px-3 py-2"><i class="bi bi-exclamation-circle-fill"></i> OVERDUE — {{ lead.next_contact_date.strftime('%d %b %Y') }}</span>
+            </div>
+            {% elif today and lead.next_contact_date == today %}
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-warning text-dark fs-6 px-3 py-2"><i class="bi bi-telephone-fill"></i> Call Today — {{ lead.next_contact_date.strftime('%d %b %Y') }}</span>
+            </div>
+            {% else %}
+            <div class="fw-500 text-success"><i class="bi bi-calendar-check"></i> {{ lead.next_contact_date.strftime('%d %b %Y') }}</div>
+            {% endif %}
+          {% else %}
+          <div class="text-muted fst-italic">Not set — <a href="{{ url_for('leads.edit', lead_id=lead.lead_id) }}">set a date</a></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-12 col-xl-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-card-text text-primary"></i> Notes</div>
+      <div class="card-body bg-light rounded m-2" style="white-space: pre-wrap;">{{ lead.notes or 'No notes available.' }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

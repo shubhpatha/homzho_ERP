@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Edit Lead – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('leads.index') }}">Leads</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('leads.view', lead_id=lead.lead_id) }}">{{ lead.name }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+      </ol>
+    </nav>
+    <h1 class="page-title">Edit Lead</h1>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('leads.edit', lead_id=lead.lead_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <div class="row g-3">
+
+    <div class="col-12 col-lg-8">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-pencil-square text-primary"></i> Update Lead Details</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control" value="{{ lead.name }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+              <input type="tel" name="contact_number" class="form-control" value="{{ lead.contact_number }}" required maxlength="15" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email (optional)</label>
+              <input type="email" name="email_id" class="form-control" value="{{ lead.email_id or '' }}" />
+            </div>
+            
+            <div class="col-md-4">
+              <label class="form-label">Lead Source</label>
+              <select name="source" class="form-select">
+                {% for src in sources %}
+                <option value="{{ src }}" {% if lead.source == src %}selected{% endif %}>{{ src }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Lead Score</label>
+              <select name="score" class="form-select">
+                {% for sc in scores %}
+                <option value="{{ sc }}" {% if lead.score == sc %}selected{% endif %}>{{ sc }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                {% for s in statuses %}
+                <option value="{{ s }}" {% if lead.status == s %}selected{% endif %} {% if s == 'Converted' %}disabled{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+              {% if lead.status != 'Converted' %}
+              <div class="form-text">Note: Status automatically changes to "Converted" upon customer creation.</div>
+              {% endif %}
+            </div>
+            
+            <div class="col-12">
+              <label class="form-label">Referred By</label>
+              <select name="referred_by_id" class="form-select">
+                <option value="">— Not a referral —</option>
+                {% for c in customers %}
+                <option value="{{ c.cust_id }}" {% if lead.referred_by_id == c.cust_id %}selected{% endif %}>{{ c.cust_name }} ({{ c.contact_number }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label"><i class="bi bi-calendar-event text-primary"></i> Next Contact Date</label>
+              <input type="date" name="next_contact_date" class="form-control"
+                     value="{{ lead.next_contact_date.isoformat() if lead.next_contact_date else '' }}"
+                     title="Set a follow-up date for this lead" />
+              <div class="form-text">Clear this field to remove the follow-up date.</div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="4">{{ lead.notes or '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="col-12 col-lg-8">
+      <div class="d-flex gap-2 justify-content-end mt-2">
+        <a href="{{ url_for('leads.view', lead_id=lead.lead_id) }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+          <i class="bi bi-save me-2"></i> Update Lead
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

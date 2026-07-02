@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+# Homzho Flask ERP System
 # Homzho Flask ERP System
 
 A lightweight, modular, and mobile-responsive ERP system built with Flask, designed specifically for a water purifier rental business.
@@ -40,6 +40,14 @@ Copy the template and fill in the values:
 cp .env.template .env
 ```
 Ensure you set a strong `SECRET_KEY` and define your admin credentials.
+
+**Meta Conversion API Configuration**
+To enable server-side tracking when leads convert to customers, add these to your `.env` file:
+```env
+META_PIXEL_ID=your_pixel_id_here
+META_ACCESS_TOKEN=your_conversions_api_access_token
+```
+*Note: If these keys are not provided, the ERP will continue to function normally and silently skip sending the Meta events.*
 
 ### 4. Database Setup
 The application uses Flask-Migrate for database schema management. Run the following commands to initialize and set up the SQLite database:
@@ -88,7 +96,3 @@ Visit `http://localhost:5000` and log in with your admin credentials.
    ```
 9. Map the `static` folder in the Web App section to `/home/username/mysite/static`.
 10. Reload the web app.
-=======
-# homzho_ERP
-homzhoERP application
->>>>>>> 9569834bd1ff281f444c9ff4502a9a5edc340f0b

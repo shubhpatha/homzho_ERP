@@ -11,3 +11,4 @@ from models.upload import Upload
 from models.activity_log import ActivityLog
 from models.reminder_log import ReminderLog
 from models.plan import Plan
+from models.lead import Lead

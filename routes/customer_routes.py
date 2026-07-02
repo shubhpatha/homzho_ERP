@@ -96,8 +96,10 @@ def add():
 
     machines = Machine.query.filter_by(machine_status='Available').all()
     plans = Plan.query.filter_by(is_active=True).order_by(Plan.validity_in_days.asc()).all()
+    all_customers = Customer.query.filter_by(customer_status='Active').order_by(Customer.cust_name).all()
 
-    form_data = {}
+    # Pre-populate form from URL query params (e.g., when converting a Lead)
+    form_data = {k: v for k, v in request.args.items()} if request.method == 'GET' else {}
     errors = {}
 
     if request.method == 'POST':
@@ -131,7 +133,7 @@ def add():
         if errors:
             return render_template(
                 'customers/add.html',
-                machines=machines, plans=plans,
+                machines=machines, plans=plans, all_customers=all_customers,
                 form_data=form_data, errors=errors,
                 active_page='customers',
             )
@@ -162,6 +164,7 @@ def add():
                 installed_by=request.form.get('installed_by', '').strip(),
                 installation_cost=float(request.form.get('installation_cost', 0) or 0),
                 next_billing_date=plan_end,
+                referred_by_id=int(request.form['referred_by_id']) if request.form.get('referred_by_id') else None
             )
 
             machine_id = request.form.get('machine_id')
@@ -200,7 +203,47 @@ def add():
                 remarks=f'Added customer: {customer.cust_name}',
                 ip_address=request.remote_addr,
             )
-            flash(f'Customer "{customer.cust_name}" added successfully!', 'success')
+
+            # Auto-mark any matching lead as Converted
+            from models.lead import Lead as LeadModel
+
+            lead_to_convert = None
+
+            # Primary: use from_lead ID if present (fastest, most reliable)
+            from_lead_id = request.form.get('from_lead')
+            if from_lead_id and from_lead_id.isdigit():
+                lead_to_convert = db.session.get(LeadModel, int(from_lead_id))
+
+            # Fallback: search by contact number with digit-only normalization
+            # This covers the case where someone manually adds a customer whose
+            # contact was already registered as a lead (no from_lead in form)
+            if not lead_to_convert:
+                # Normalize to digits only for a reliable comparison
+                digits_only = ''.join(filter(str.isdigit, contact))
+                # Fetch all unconverted leads and compare digit-normalized numbers
+                unconverted_leads = LeadModel.query.filter(
+                    LeadModel.status != 'Converted'
+                ).all()
+                for l in unconverted_leads:
+                    if ''.join(filter(str.isdigit, l.contact_number)) == digits_only:
+                        lead_to_convert = l
+                        break
+
+            if lead_to_convert and lead_to_convert.status != 'Converted':
+                lead_to_convert.status = 'Converted'
+                db.session.commit()
+
+            wa_link = None
+            if customer.referred_by_id:
+                referrer = db.session.get(Customer, customer.referred_by_id)
+                if referrer and referrer.contact_number:
+                    from services.whatsapp_service import get_referral_thank_you_link
+                    wa_link = get_referral_thank_you_link(referrer.cust_name, referrer.contact_number, customer.cust_name)
+
+            if wa_link:
+                flash(f'Customer "{customer.cust_name}" added successfully! <a href="{wa_link}" target="_blank" class="alert-link ms-2"><i class="bi bi-whatsapp"></i> Send Referral Thank You</a>', 'success')
+            else:
+                flash(f'Customer "{customer.cust_name}" added successfully!', 'success')
             return redirect(url_for('customers.view', cust_id=customer.cust_id))
 
         except Exception as exc:
@@ -209,6 +252,7 @@ def add():
             flash(f'Error adding customer: {exc}', 'danger')
 
     return render_template('customers/add.html', machines=machines, plans=plans,
+                           all_customers=all_customers,
                            form_data=form_data, errors=errors, active_page='customers')
 
 

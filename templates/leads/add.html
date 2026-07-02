@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Add Lead – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('leads.index') }}">Leads</a></li>
+        <li class="breadcrumb-item active">Add Lead</li>
+      </ol>
+    </nav>
+    <h1 class="page-title">Add New Lead</h1>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('leads.add') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <div class="row g-3">
+
+    <div class="col-12 col-lg-8">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-person-plus-fill text-primary"></i> Lead Details</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control" placeholder="e.g. Rahul Sharma" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+              <input type="tel" name="contact_number" class="form-control" placeholder="10-digit mobile" required maxlength="15" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email (optional)</label>
+              <input type="email" name="email_id" class="form-control" placeholder="email@example.com" />
+            </div>
+            
+            <div class="col-md-6">
+              <label class="form-label">Lead Source</label>
+              <select name="source" class="form-select">
+                {% for src in sources %}
+                <option value="{{ src }}">{{ src }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Lead Score</label>
+              <select name="score" class="form-select">
+                {% for sc in scores %}
+                <option value="{{ sc }}" {% if sc == 'Warm' %}selected{% endif %}>{{ sc }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <div class="col-12">
+              <label class="form-label">Referred By (if source is Referral)</label>
+              <select name="referred_by_id" class="form-select">
+                <option value="">— Not a referral —</option>
+                {% for c in customers %}
+                <option value="{{ c.cust_id }}">{{ c.cust_name }} ({{ c.contact_number }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label"><i class="bi bi-calendar-event text-primary"></i> Next Contact Date</label>
+              <input type="date" name="next_contact_date" class="form-control"
+                     title="Set a follow-up date so you know when to call this lead" />
+              <div class="form-text">Set a date to follow up — the lead list is sorted by this date.</div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="4" placeholder="Any initial requirements or notes..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="col-12 col-lg-8">
+      <div class="d-flex gap-2 justify-content-end mt-2">
+        <a href="{{ url_for('leads.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+          <i class="bi bi-save me-2"></i> Save Lead
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
