@@ -11,9 +11,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 ROLE_PERMISSIONS = {
     'admin': {
         'customers', 'machines', 'payments', 'maintenance', 'expenses',
-        'uploads', 'reports', 'settings',
+        'uploads', 'reports', 'settings', 'leads',
     },
-    'operator': {'customers', 'machines', 'payments', 'maintenance', 'expenses', 'uploads', 'reports'},
+    'operator': {'customers', 'machines', 'payments', 'maintenance', 'expenses', 'uploads', 'reports', 'leads'},
     'technician': {'maintenance', 'machines'},
     'custom': set(),
 }

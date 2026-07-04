@@ -12,7 +12,7 @@
     <span class="status-badge status-{{ customer.customer_status | lower }}">{{ customer.customer_status }}</span>
   </div>
   <div class="page-actions">
-    {% if current_user.has_permission('payments') %}
+    {% if current_user.has_permission('payments') and customer.customer_status == 'Active' %}
     <a href="{{ url_for('payments.add') }}?customer_id={{ customer.cust_id }}" class="btn btn-success">
       <i class="bi bi-cash-coin"></i> Record Payment
     </a>
@@ -64,9 +64,9 @@
             <td>
               {% if customer.next_billing_date %}
                 {% set diff = (customer.next_billing_date - today).days %}
-                {% if diff < 0 %}
+                {% if customer.customer_status == 'Active' and diff < 0 %}
                   <span class="text-danger fw-600">{{ customer.next_billing_date.strftime('%d %b %Y') }} ({{ diff | abs }}d overdue)</span>
-                {% elif diff <= 7 %}
+                {% elif customer.customer_status == 'Active' and diff <= 7 %}
                   <span class="text-warning fw-600">{{ customer.next_billing_date.strftime('%d %b %Y') }}</span>
                 {% else %}
                   {{ customer.next_billing_date.strftime('%d %b %Y') }}
@@ -89,7 +89,20 @@
           <tr><th>Installed By</th><td>{{ customer.installed_by or '—' }}</td></tr>
           <tr><th>Install Date</th><td>{{ customer.installation_date.strftime('%d %b %Y') if customer.installation_date else '—' }}</td></tr>
           <tr><th>Last Service</th><td>{{ customer.last_service_date.strftime('%d %b %Y') if customer.last_service_date else '—' }}</td></tr>
-          <tr><th>Next Service</th><td>{{ customer.next_service_date.strftime('%d %b %Y') if customer.next_service_date else '—' }}</td></tr>
+          <tr><th>Next Service</th>
+            <td>
+              {% if customer.next_service_date %}
+                {% set svc_diff = (customer.next_service_date - today).days %}
+                {% if customer.customer_status == 'Active' and svc_diff < 0 %}
+                  <span class="text-danger fw-600">{{ customer.next_service_date.strftime('%d %b %Y') }} ({{ svc_diff | abs }}d overdue)</span>
+                {% elif customer.customer_status == 'Active' and svc_diff <= 14 %}
+                  <span class="text-warning fw-600">{{ customer.next_service_date.strftime('%d %b %Y') }}</span>
+                {% else %}
+                  {{ customer.next_service_date.strftime('%d %b %Y') }}
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+          </tr>
         </table>
         <a href="{{ url_for('machines.view', machine_id=customer.machine_id) }}" class="btn btn-sm btn-outline-primary mt-2">
           <i class="bi bi-cpu"></i> View Machine
