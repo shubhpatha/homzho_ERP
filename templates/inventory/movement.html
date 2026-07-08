@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Stock Movement - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('inventory.index') }}">Inventory</a></li>
+      <li class="breadcrumb-item active">Stock Movement</li>
+    </ol></nav>
+    <h1 class="page-title">{{ item.item_name }}</h1>
+    <p class="page-subtitle">Current stock: <strong>{{ '{:g}'.format(item.current_stock) }} {{ item.unit }}</strong></p>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-arrow-left-right text-primary"></i> Movement Details</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('inventory.add_movement', item_id=item.item_id) }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Date <span class="text-danger">*</span></label>
+              <input type="date" name="movement_date" class="form-control" value="{{ movement_date_default }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Movement <span class="text-danger">*</span></label>
+              <select name="movement_type" class="form-select" required>
+                {% for type in movement_types %}
+                <option value="{{ type }}">{{ type }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Quantity <span class="text-danger">*</span></label>
+              <input type="number" name="quantity" class="form-control" min="0" step="0.01" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Unit Cost (&#8377;)</label>
+              <input type="number" name="unit_cost" class="form-control" min="0" step="0.01" value="{{ item.unit_cost }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Mode</label>
+              <select name="payment_mode" class="form-select">
+                {% for mode in payment_modes %}
+                <option value="{{ mode }}">{{ mode }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Reference</label>
+              <input type="text" name="reference_type" class="form-control" placeholder="Bill, vendor invoice, service" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2 mt-4">
+              <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Movement</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-card mt-4">
+      <div class="table-toolbar"><span class="table-title"><i class="bi bi-clock-history me-2"></i>History</span></div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>Cost</th><th>Notes</th></tr></thead>
+          <tbody>
+            {% for movement in movements %}
+            <tr>
+              <td>{{ movement.movement_date.strftime('%d %b %Y') }}</td>
+              <td>{{ movement.movement_type }}</td>
+              <td>{{ '{:g}'.format(movement.quantity) }} {{ item.unit }}</td>
+              <td>&#8377;{{ '{:,.2f}'.format(movement.total_value) }}</td>
+              <td><small class="text-muted">{{ movement.notes or '-' }}</small></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">No movement history.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

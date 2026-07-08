@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Accounting - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Accounting</h1>
+    <p class="page-subtitle">Income: <strong class="text-success">&#8377;{{ '{:,.0f}'.format(monthly_income) }}</strong> &nbsp; Expense: <strong class="text-danger">&#8377;{{ '{:,.0f}'.format(monthly_expense) }}</strong> &nbsp; Net: <strong class="{{ 'text-success' if monthly_net >= 0 else 'text-danger' }}">&#8377;{{ '{:,.0f}'.format(monthly_net) }}</strong></p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('accounting.export_csv') }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-8">
+    <form method="GET" class="filter-bar h-100 mb-0">
+      <select name="type" class="form-select">
+        <option value="">All Types</option>
+        <option value="Income" {% if type_filter == 'Income' %}selected{% endif %}>Income</option>
+        <option value="Expense" {% if type_filter == 'Expense' %}selected{% endif %}>Expense</option>
+      </select>
+      <select name="category" class="form-select">
+        <option value="">All Categories</option>
+        {% for c in categories %}
+        <option value="{{ c }}" {% if category_filter == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+      <input type="month" name="month" class="form-control" value="{{ month_filter }}" title="Filter by month">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+      <a href="{{ url_for('accounting.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+    </form>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-body p-2 d-flex gap-2 overflow-auto" style="white-space:nowrap; align-items:center;">
+        {% for cat in category_totals %}
+        <div class="border rounded px-3 py-2 bg-light">
+          <div class="small text-muted fw-600">{{ cat.category }}</div>
+          <div class="fw-bold text-danger">&#8377;{{ '{:,.0f}'.format(cat.total) }}</div>
+        </div>
+        {% else %}
+        <div class="text-muted w-100 text-center small">No expenses this month.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Category</th>
+          <th>Amount</th>
+          <th>Mode</th>
+          <th>Party</th>
+          <th>Reference</th>
+          <th>Source</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td class="fw-600">{{ entry.entry_date.strftime('%d %b %Y') }}</td>
+          <td><span class="badge {{ 'bg-success' if entry.entry_type == 'Income' else 'bg-danger' }}">{{ entry.entry_type }}</span></td>
+          <td>{{ entry.category }}</td>
+          <td class="fw-600 {{ 'text-success' if entry.entry_type == 'Income' else 'text-danger' }}">&#8377;{{ '{:,.2f}'.format(entry.amount) }}</td>
+          <td><small>{{ entry.payment_mode or '-' }}</small></td>
+          <td>{{ entry.party_name or '-' }}</td>
+          <td>{{ entry.reference_no or '-' }}</td>
+          <td><small class="text-muted">{{ entry.source_type }} #{{ entry.source_id }}</small></td>
+          <td><small class="text-muted">{{ entry.description or '-' }}</small></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-5">No accounting entries found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}-{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</small>
+    <nav><ul class="pagination pagination-sm mb-0">
+      {% if pagination.has_prev %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('accounting.index', page=pagination.prev_num, type=type_filter, category=category_filter, month=month_filter) }}">&lsaquo;</a></li>
+      {% endif %}
+      {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('accounting.index', page=p, type=type_filter, category=category_filter, month=month_filter) }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('accounting.index', page=pagination.next_num, type=type_filter, category=category_filter, month=month_filter) }}">&rsaquo;</a></li>
+      {% endif %}
+    </ul></nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -11,10 +11,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 ROLE_PERMISSIONS = {
     'admin': {
         'customers', 'machines', 'payments', 'maintenance', 'expenses',
-        'uploads', 'reports', 'settings', 'leads',
+        'uploads', 'reports', 'settings', 'leads', 'accounting', 'inventory',
     },
-    'operator': {'customers', 'machines', 'payments', 'maintenance', 'expenses', 'uploads', 'reports', 'leads'},
-    'technician': {'maintenance', 'machines'},
+    'operator': {
+        'customers', 'machines', 'payments', 'maintenance', 'expenses',
+        'uploads', 'reports', 'leads', 'accounting', 'inventory',
+    },
+    'technician': {'maintenance', 'machines', 'inventory'},
     'custom': set(),
 }
 

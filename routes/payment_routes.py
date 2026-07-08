@@ -12,6 +12,7 @@ from models.payment import Payment
 from models.plan import Plan
 from utils.helpers import log_activity, get_page_items, generate_invoice_no
 from utils.tax import calculate_inclusive_gst
+from services.accounting_service import sync_payment_to_ledger
 
 payment_bp = Blueprint('payments', __name__, url_prefix='/payments')
 
@@ -36,6 +37,7 @@ def _build_invoice_items(form, customer):
     descriptions = form.getlist('item_description')
     quantities = form.getlist('item_quantity')
     unit_prices = form.getlist('item_unit_price')
+    hsn_sac_codes = form.getlist('item_hsn_sac')
     row_count = max(len(descriptions), len(quantities), len(unit_prices))
     items = []
 
@@ -43,6 +45,7 @@ def _build_invoice_items(form, customer):
         description = descriptions[index].strip() if index < len(descriptions) else ''
         quantity = _parse_amount(quantities[index] if index < len(quantities) else 1, 1.0)
         unit_price = _parse_amount(unit_prices[index] if index < len(unit_prices) else 0, 0.0)
+        hsn_sac = (hsn_sac_codes[index].strip() if index < len(hsn_sac_codes) else '') or ''
         if not description and unit_price <= 0:
             continue
         if not description:
@@ -52,6 +55,7 @@ def _build_invoice_items(form, customer):
         line_total = round(quantity * unit_price, 2)
         items.append({
             'description': description,
+            'hsn_sac': hsn_sac,
             'quantity': quantity,
             'unit_price': unit_price,
             'line_total': line_total,
@@ -61,6 +65,7 @@ def _build_invoice_items(form, customer):
         fallback_total = _parse_amount(form.get('amount_due'), customer.monthly_rent)
         items.append({
             'description': _default_invoice_description(customer),
+            'hsn_sac': '',
             'quantity': 1.0,
             'unit_price': fallback_total,
             'line_total': round(fallback_total, 2),
@@ -248,6 +253,8 @@ def add():
 
             # Update customer next_billing_date
             customer.next_billing_date = next_due
+            db.session.flush()
+            sync_payment_to_ledger(payment, current_user.username)
 
             db.session.commit()
             log_activity(current_user.username, 'Add', 'Payment', payment.payment_id,
@@ -294,6 +301,103 @@ def view(payment_id):
         invoice_amount=invoice['invoice_amount'],
         invoice_tax=invoice['invoice_tax'],
         balance_amount=invoice['balance_amount'],
+        active_page='payments',
+    )
+
+
+# ---------------------------------------------------------------------------
+# Print / Download Invoice (standalone page, no sidebar)
+# ---------------------------------------------------------------------------
+
+@payment_bp.route('/<int:payment_id>/print')
+@login_required
+def print_invoice(payment_id):
+    """Render a standalone, sidebar-free invoice page for print / PDF download."""
+    if not current_user.has_permission('payments'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    payment = db.get_or_404(Payment, payment_id)
+    invoice = _invoice_summary(payment)
+    return render_template(
+        'payments/invoice_print.html',
+        payment=payment,
+        is_gst_invoice=invoice['is_gst_invoice'],
+        invoice_items=invoice['invoice_items'],
+        deposit_amount=invoice['deposit_amount'],
+        taxable_total=invoice['taxable_total'],
+        invoice_amount=invoice['invoice_amount'],
+        invoice_tax=invoice['invoice_tax'],
+        balance_amount=invoice['balance_amount'],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Edit Payment
+# ---------------------------------------------------------------------------
+
+@payment_bp.route('/<int:payment_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit(payment_id):
+    """Correct an existing payment — amount, items, mode, ref. Invoice no & next_due_date are frozen."""
+    if not current_user.has_permission('payments'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('payments.index'))
+
+    payment = db.get_or_404(Payment, payment_id)
+
+    if request.method == 'POST':
+        try:
+            customer = payment.customer
+
+            # Re-build invoice items (picks up hsn_sac too)
+            invoice_items = _build_invoice_items(request.form, customer)
+            is_gst_invoice = request.form.get('invoice_tax_mode', 'gst') == 'gst'
+            deposit_amount = (
+                _parse_amount(request.form.get('deposit_amount'))
+                if request.form.get('include_deposit')
+                else 0.0
+            )
+            taxable_total = round(sum(item['line_total'] for item in invoice_items), 2)
+            amount_due = round(taxable_total + deposit_amount, 2)
+            amount_paid = _parse_amount(request.form['amount_paid'])
+
+            # Update fields — invoice_no and next_due_date are intentionally NOT changed
+            payment.amount_paid = amount_paid
+            payment.amount_due = amount_due
+            payment.deposit_amount = deposit_amount
+            payment.is_gst_invoice = is_gst_invoice
+            payment.payment_mode = request.form['payment_mode']
+            payment.transaction_id = request.form.get('transaction_id', '').strip() or None
+            payment.remark = request.form.get('remark', '').strip()
+            payment.collected_by = request.form.get('collected_by', '').strip()
+            payment.payment_status = _payment_status(amount_paid, amount_due)
+            payment.invoice_items = invoice_items
+
+            # Sync updated amounts/mode/description to the general ledger
+            # upsert_ledger_entry matches on source_type + source_id + entry_type + category
+            # so this updates the existing ledger row in-place (reference_no = invoice_no stays the same)
+            db.session.flush()
+            sync_payment_to_ledger(payment, current_user.username)
+
+            db.session.commit()
+            log_activity(current_user.username, 'Edit', 'Payment', payment.payment_id,
+                         f'Edited invoice {payment.invoice_no}', request.remote_addr)
+            flash(f'Invoice {payment.invoice_no} updated successfully.', 'success')
+            return redirect(url_for('payments.view', payment_id=payment.payment_id))
+
+        except Exception as exc:
+            db.session.rollback()
+            current_app.logger.error(f'Error editing payment: {exc}', exc_info=True)
+            flash(f'Error updating payment: {exc}', 'danger')
+
+    # Pre-build the invoice summary for form pre-fill
+    invoice = _invoice_summary(payment)
+    return render_template(
+        'payments/edit.html',
+        payment=payment,
+        invoice=invoice,
+        payment_modes=PAYMENT_MODES,
         active_page='payments',
     )
 

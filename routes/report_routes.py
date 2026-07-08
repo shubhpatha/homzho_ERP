@@ -9,10 +9,11 @@ from flask_login import login_required, current_user
 from sqlalchemy import func
 from extensions import db
 from models.payment import Payment
-from models.expense import Expense
+from models.accounting import AccountLedger
 from models.customer import Customer
 from models.machine import Machine
 from utils.tax import calculate_inclusive_gst
+from services.accounting_service import ledger_total, ledger_breakdown
 
 report_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
@@ -46,21 +47,11 @@ def index():
 
     start_date, end_date = _get_date_range()
 
-    # ── Financial summary ────────────────────────────────────────────────────
-    total_revenue = db.session.query(
-        func.coalesce(func.sum(Payment.amount_paid), 0)
-    ).filter(
-        Payment.payment_date >= start_date,
-        Payment.payment_date <= end_date,
-    ).scalar() or 0
+    # Financial summary from unified accounting ledger.
+    total_revenue = ledger_total('Income', start_date, end_date)
     revenue_tax = calculate_inclusive_gst(total_revenue)
 
-    total_expenses = db.session.query(
-        func.coalesce(func.sum(Expense.amount), 0)
-    ).filter(
-        Expense.expense_date >= start_date,
-        Expense.expense_date <= end_date,
-    ).scalar() or 0
+    total_expenses = ledger_total('Expense', start_date, end_date)
     net_profit = revenue_tax['taxable_amount'] - float(total_expenses)
 
     # ── Machine status distribution ──────────────────────────────────────────
@@ -69,14 +60,8 @@ def index():
         func.count(Machine.machine_id).label('count')
     ).group_by(Machine.machine_status).all()
 
-    # ── Expense breakdown by category ────────────────────────────────────────
-    expense_breakdown = db.session.query(
-        Expense.expense_category,
-        func.sum(Expense.amount).label('total')
-    ).filter(
-        Expense.expense_date >= start_date,
-        Expense.expense_date <= end_date,
-    ).group_by(Expense.expense_category).all()
+    # Expense breakdown by category.
+    expense_breakdown = ledger_breakdown('Expense', start_date, end_date)
 
     # ── New customers in period ──────────────────────────────────────────────
     new_customers = Customer.query.filter(
@@ -131,14 +116,13 @@ def export_summary():
         Payment.payment_date <= end_date,
     ).order_by(Payment.payment_date).all()
 
-    # Expenses in range
-    expenses = Expense.query.filter(
-        Expense.expense_date >= start_date,
-        Expense.expense_date <= end_date,
-    ).order_by(Expense.expense_date).all()
+    accounting_entries = AccountLedger.query.filter(
+        AccountLedger.entry_date >= start_date,
+        AccountLedger.entry_date <= end_date,
+    ).order_by(AccountLedger.entry_date, AccountLedger.ledger_id).all()
 
-    total_revenue = sum(float(p.amount_paid or 0) for p in payments)
-    total_expenses = sum(float(e.amount or 0) for e in expenses)
+    total_revenue = ledger_total('Income', start_date, end_date)
+    total_expenses = ledger_total('Expense', start_date, end_date)
     revenue_tax = calculate_inclusive_gst(total_revenue)
     net_profit = revenue_tax['taxable_amount'] - total_expenses
 
@@ -173,10 +157,20 @@ def export_summary():
         ])
 
     writer.writerow([])
-    writer.writerow(['--- EXPENSES ---'])
-    writer.writerow(['Date', 'Category', 'Remarks', 'Amount'])
-    for e in expenses:
-        writer.writerow([e.expense_date, e.expense_category, e.remarks, e.amount])
+    writer.writerow(['--- ACCOUNT LEDGER ---'])
+    writer.writerow(['Date', 'Type', 'Category', 'Party', 'Description', 'Source', 'Reference', 'Mode', 'Amount'])
+    for entry in accounting_entries:
+        writer.writerow([
+            entry.entry_date,
+            entry.entry_type,
+            entry.category,
+            entry.party_name,
+            entry.description,
+            entry.source_type,
+            entry.reference_no,
+            entry.payment_mode,
+            entry.amount,
+        ])
 
     output.seek(0)
     filename = f'report_{start_date}_{end_date}.csv'

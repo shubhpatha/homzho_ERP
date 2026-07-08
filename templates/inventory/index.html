@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Inventory - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Inventory</h1>
+    <p class="page-subtitle">Items: <strong>{{ total_items }}</strong> &nbsp; Low stock: <strong class="text-danger">{{ low_stock_count }}</strong> &nbsp; Value: <strong>&#8377;{{ '{:,.0f}'.format(total_value) }}</strong></p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('inventory.add_item') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Add Item</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-8">
+    <form method="GET" class="filter-bar h-100 mb-0">
+      <input type="text" name="search" class="form-control" placeholder="Search item or vendor" value="{{ search }}">
+      <select name="category" class="form-select">
+        <option value="">All Categories</option>
+        {% for c in categories %}
+        <option value="{{ c }}" {% if category_filter == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+      <select name="low_stock" class="form-select">
+        <option value="">All Stock</option>
+        <option value="1" {% if low_stock %}selected{% endif %}>Low Stock</option>
+      </select>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+      <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+    </form>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-clock-history text-primary"></i> Recent Movement</div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for movement in recent_movements %}
+          <div class="list-group-item d-flex justify-content-between gap-2">
+            <div>
+              <div class="fw-600">{{ movement.item.item_name if movement.item else 'Item' }}</div>
+              <small class="text-muted">{{ movement.movement_type }} on {{ movement.movement_date.strftime('%d %b') }}</small>
+            </div>
+            <span class="fw-bold">{{ '{:g}'.format(movement.quantity) }}</span>
+          </div>
+          {% else %}
+          <div class="p-3 text-muted text-center small">No stock movements yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Category</th>
+          <th>Stock</th>
+          <th>Reorder</th>
+          <th>Unit Cost</th>
+          <th>Value</th>
+          <th>Vendor</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="fw-600">{{ item.item_name }}</td>
+          <td><span class="badge bg-secondary">{{ item.category }}</span></td>
+          <td class="fw-600 {{ 'text-danger' if item.is_low_stock else 'text-success' }}">{{ '{:g}'.format(item.current_stock) }} {{ item.unit }}</td>
+          <td>{{ '{:g}'.format(item.reorder_level) }} {{ item.unit }}</td>
+          <td>&#8377;{{ '{:,.2f}'.format(item.unit_cost) }}</td>
+          <td class="fw-600">&#8377;{{ '{:,.2f}'.format(item.stock_value) }}</td>
+          <td>{{ item.vendor_name or '-' }}</td>
+          <td><a href="{{ url_for('inventory.add_movement', item_id=item.item_id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-left-right"></i> Move</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-5">No inventory items found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}-{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</small>
+    <nav><ul class="pagination pagination-sm mb-0">
+      {% if pagination.has_prev %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('inventory.index', page=pagination.prev_num, search=search, category=category_filter, low_stock=low_stock) }}">&lsaquo;</a></li>
+      {% endif %}
+      {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('inventory.index', page=p, search=search, category=category_filter, low_stock=low_stock) }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('inventory.index', page=pagination.next_num, search=search, category=category_filter, low_stock=low_stock) }}">&rsaquo;</a></li>
+      {% endif %}
+    </ul></nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

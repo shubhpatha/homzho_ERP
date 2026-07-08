@@ -10,6 +10,7 @@ from models.machine import Machine
 from models.maintenance import Maintenance
 from utils.helpers import log_activity, get_page_items
 from utils.file_handler import save_upload
+from services.accounting_service import sync_maintenance_to_ledger
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
@@ -142,6 +143,8 @@ def add():
                 machine.last_service_date = service_date
                 machine.next_service_date = next_service
 
+            db.session.flush()
+            sync_maintenance_to_ledger(record, current_user.username)
             db.session.commit()
             log_activity(current_user.username, 'Add', 'Maintenance', record.service_id,
                          f'Maintenance for machine #{machine_id}', request.remote_addr)

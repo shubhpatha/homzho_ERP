@@ -68,7 +68,7 @@
       </thead>
       <tbody>
         {% for c in customers %}
-        {% set days_overdue = (today - c.next_billing_date).days if c.next_billing_date and c.next_billing_date < today else 0 %}
+        {% set days_overdue = (today - c.next_billing_date).days if c.customer_status == 'Active' and c.next_billing_date and c.next_billing_date < today else 0 %}
         <tr>
           <td class="text-muted">{{ c.cust_id }}</td>
           <td>
@@ -87,11 +87,11 @@
           <td>{{ c.plan_name }}<br><small class="text-muted">{{ c.payment_freq }}</small></td>
           <td class="fw-600">₹{{ '{:,.0f}'.format(c.monthly_rent) }}</td>
           <td>
-            {% if c.next_billing_date %}
-              {% if days_overdue > 0 %}
+                      {% if c.next_billing_date %}
+              {% if c.customer_status == 'Active' and days_overdue > 0 %}
                 <span class="text-danger fw-600">{{ c.next_billing_date.strftime('%d %b %Y') }}</span>
                 <br><small class="text-danger">{{ days_overdue }}d overdue</small>
-              {% elif (c.next_billing_date - today).days <= 7 %}
+              {% elif c.customer_status == 'Active' and (c.next_billing_date - today).days <= 7 %}
                 <span class="text-warning fw-600">{{ c.next_billing_date.strftime('%d %b %Y') }}</span>
                 <br><small class="text-warning">Due soon</small>
               {% else %}
@@ -114,7 +114,9 @@
               <a href="{{ url_for('customers.view', cust_id=c.cust_id) }}" class="btn btn-icon btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
               {% if current_user.has_permission('customers') %}
               <a href="{{ url_for('customers.edit', cust_id=c.cust_id) }}" class="btn btn-icon btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+              {% if c.customer_status == 'Active' %}
               <a href="{{ url_for('payments.add') }}?customer_id={{ c.cust_id }}" class="btn btn-icon btn-sm btn-outline-success" title="Record Payment"><i class="bi bi-cash"></i></a>
+              {% endif %}
               {% endif %}
             </div>
           </td>

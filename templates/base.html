@@ -114,6 +114,26 @@
       {% endif %}
     </li>
 
+    <li class="nav-item">
+      {% if current_user.has_permission('accounting') %}
+      <a href="{{ url_for('accounting.index') }}"
+         class="nav-link {% if active_page == 'accounting' %}active{% endif %}">
+        <i class="bi bi-journal-text"></i>
+        <span>Accounting</span>
+      </a>
+      {% endif %}
+    </li>
+
+    <li class="nav-item">
+      {% if current_user.has_permission('inventory') %}
+      <a href="{{ url_for('inventory.index') }}"
+         class="nav-link {% if active_page == 'inventory' %}active{% endif %}">
+        <i class="bi bi-box-seam-fill"></i>
+        <span>Inventory</span>
+      </a>
+      {% endif %}
+    </li>
+
     <li class="nav-section-label">Tools</li>
 
     <li class="nav-item">

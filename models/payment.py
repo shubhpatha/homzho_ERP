@@ -53,12 +53,14 @@ class Payment(db.Model):
             if not isinstance(item, dict):
                 continue
             description = str(item.get('description') or '').strip()
+            hsn_sac = str(item.get('hsn_sac') or '').strip()
             quantity = self._as_float(item.get('quantity'), 1.0)
             unit_price = self._as_float(item.get('unit_price'), 0.0)
             line_total = self._as_float(item.get('line_total'), quantity * unit_price)
             if description and line_total >= 0:
                 items.append({
                     'description': description,
+                    'hsn_sac': hsn_sac,
                     'quantity': quantity,
                     'unit_price': unit_price,
                     'line_total': line_total,
@@ -70,12 +72,14 @@ class Payment(db.Model):
         clean_items = []
         for item in items or []:
             description = str(item.get('description') or '').strip()
+            hsn_sac = str(item.get('hsn_sac') or '').strip()
             quantity = self._as_float(item.get('quantity'), 1.0)
             unit_price = self._as_float(item.get('unit_price'), 0.0)
             line_total = round(quantity * unit_price, 2)
             if description and quantity > 0 and unit_price >= 0:
                 clean_items.append({
                     'description': description,
+                    'hsn_sac': hsn_sac,
                     'quantity': quantity,
                     'unit_price': unit_price,
                     'line_total': line_total,

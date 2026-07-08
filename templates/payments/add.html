@@ -10,20 +10,23 @@
     align-items: start;
   }
   .invoice-items-table {
-    min-width: 720px;
+    min-width: 860px;
   }
   .invoice-items-table th {
     background: var(--surface2);
   }
   .invoice-items-table .col-description {
-    min-width: 260px;
+    min-width: 220px;
+  }
+  .invoice-items-table .col-hsn {
+    width: 110px;
   }
   .invoice-items-table .col-qty {
-    width: 110px;
+    width: 100px;
   }
   .invoice-items-table .col-rate,
   .invoice-items-table .col-total {
-    width: 150px;
+    width: 140px;
   }
   .invoice-items-table .col-action {
     width: 48px;
@@ -203,6 +206,7 @@
               <thead>
                 <tr>
                   <th class="col-description">Product / Service</th>
+                  <th class="col-hsn">HSN / SAC</th>
                   <th class="col-qty text-end">Qty</th>
                   <th class="col-rate text-end">Rate</th>
                   <th class="col-total text-end">Total</th>
@@ -363,12 +367,16 @@
     });
   };
 
-  const addItemRow = (description = '', quantity = 1, unitPrice = 0) => {
+  const addItemRow = (description = '', quantity = 1, unitPrice = 0, hsnSac = '') => {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>
         <input type="text" name="item_description" class="form-control item-description"
                value="${escapeAttr(description)}" placeholder="Water purifier rental" required />
+      </td>
+      <td>
+        <input type="text" name="item_hsn_sac" class="form-control item-hsn-sac"
+               value="${escapeAttr(hsnSac)}" placeholder="e.g. 998711" />
       </td>
       <td>
         <input type="number" name="item_quantity" class="form-control text-end item-quantity"

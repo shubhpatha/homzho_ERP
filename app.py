@@ -64,6 +64,8 @@ def create_app(config_name: str = None) -> Flask:
     from routes.machine_routes import machine_bp
     from routes.maintenance_routes import maintenance_bp
     from routes.expense_routes import expense_bp
+    from routes.accounting_routes import accounting_bp
+    from routes.inventory_routes import inventory_bp
     from routes.upload_routes import upload_bp
     from routes.reminder_routes import reminder_bp
     from routes.report_routes import report_bp
@@ -77,6 +79,8 @@ def create_app(config_name: str = None) -> Flask:
     app.register_blueprint(machine_bp)
     app.register_blueprint(maintenance_bp)
     app.register_blueprint(expense_bp)
+    app.register_blueprint(accounting_bp)
+    app.register_blueprint(inventory_bp)
     app.register_blueprint(upload_bp)
     app.register_blueprint(reminder_bp)
     app.register_blueprint(report_bp)
@@ -179,6 +183,7 @@ def create_app(config_name: str = None) -> Flask:
         _ensure_payment_invoice_columns()
         _ensure_default_plans()
         _ensure_leads_and_referrals()
+        _ensure_accounting_and_inventory()
 
     return app
 
@@ -270,6 +275,15 @@ def _ensure_leads_and_referrals():
                 db.session.rollback()
                 print(f"Migration error for next_contact_date: {e}")
 
+
+def _ensure_accounting_and_inventory():
+    """Create new accounting/inventory tables and backfill ledger rows."""
+    from models import AccountLedger, InventoryItem, InventoryMovement  # noqa: F401
+    from services.accounting_service import backfill_account_ledger
+
+    db.create_all()
+    backfill_account_ledger()
+    db.session.commit()
 
 def _setup_logging(app: Flask):
     """Configure rotating file logger."""

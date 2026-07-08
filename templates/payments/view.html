@@ -241,44 +241,20 @@
     }
   }
   @media print {
-    @page {
-      size: A4;
-      margin: 12mm;
-    }
-    body * {
-      visibility: hidden;
-    }
-    .invoice-shell,
-    .invoice-shell * {
-      visibility: visible;
-    }
-    .invoice-shell {
-      position: absolute;
-      inset: 0;
-      max-width: none;
-      margin: 0;
-    }
-    .invoice-card {
-      box-shadow: none;
-      border-radius: 0;
-      border: 0;
-    }
-    .page-header,
-    .sidebar,
-    .topbar,
-    .flash-container {
+    @page { size: A4; margin: 10mm; }
+    /* Hide the entire app chrome — only invoice-shell stays */
+    .sidebar, .topbar, .page-header, .flash-container,
+    .sidebar-overlay, #loadingOverlay, .d-print-none {
       display: none !important;
     }
     .main-wrapper {
-      margin-left: 0;
-      padding: 0;
+      margin-left: 0 !important;
+      padding: 0 !important;
     }
-    .page-content {
-      padding: 0;
-    }
-    body {
-      background: #fff;
-    }
+    .page-content { padding: 0 !important; }
+    body { background: #fff !important; }
+    .invoice-shell { max-width: 100% !important; margin: 0 !important; }
+    .invoice-card  { box-shadow: none !important; border: none !important; border-radius: 0 !important; }
   }
 </style>
 {% endblock %}
@@ -293,8 +269,18 @@
     <h1 class="page-title">Invoice #{{ payment.invoice_no }}</h1>
   </div>
   <div class="page-actions">
-    <button class="btn btn-outline-secondary" onclick="window.print()">
-      <i class="bi bi-printer"></i> Print Invoice
+    {% if current_user.has_permission('payments') %}
+    <a href="{{ url_for('payments.edit', payment_id=payment.payment_id) }}" class="btn btn-outline-warning">
+      <i class="bi bi-pencil-square"></i> Edit Invoice
+    </a>
+    {% endif %}
+    <button class="btn btn-outline-secondary"
+            onclick="window.open('{{ url_for('payments.print_invoice', payment_id=payment.payment_id) }}', '_blank', 'width=900,height=700,scrollbars=yes')">
+      <i class="bi bi-printer"></i> Print
+    </button>
+    <button class="btn btn-outline-success"
+            onclick="window.open('{{ url_for('payments.print_invoice', payment_id=payment.payment_id) }}', '_blank', 'width=900,height=700,scrollbars=yes')">
+      <i class="bi bi-file-earmark-pdf"></i> Download PDF
     </button>
     <a href="{{ url_for('customers.view', cust_id=payment.customer_id) }}" class="btn btn-outline-primary">
       <i class="bi bi-person"></i> View Customer
@@ -362,10 +348,6 @@
             <span>Status</span>
             <strong>{{ payment.payment_status }}</strong>
           </div>
-          <div class="invoice-detail-row">
-            <span>Bill Type</span>
-            <strong>{{ 'With GST' if is_gst_invoice else 'Without GST' }}</strong>
-          </div>
           {% if payment.next_due_date %}
           <div class="invoice-detail-row">
             <span>Next Due Date</span>
@@ -381,6 +363,7 @@
             <tr>
               <th style="width: 52px;">#</th>
               <th>Description</th>
+              <th style="width: 100px;">HSN/SAC</th>
               <th class="num" style="width: 88px;">Qty</th>
               <th class="num" style="width: 120px;">Rate</th>
               <th class="num" style="width: 120px;">{{ 'GST' if is_gst_invoice else 'Tax' }}</th>
@@ -400,6 +383,7 @@
                 </div>
                 {% endif %}
               </td>
+              <td class="text-muted" style="font-size:12px;">{{ item.hsn_sac if item.hsn_sac else '—' }}</td>
               <td class="num">{{ '{:,.2f}'.format(item.quantity) }}</td>
               <td class="num">&#8377;{{ '{:,.2f}'.format(item.unit_price) }}</td>
               <td class="num">{{ '18%' if is_gst_invoice else 'No GST' }}</td>
@@ -413,6 +397,7 @@
                 <div class="invoice-item-title">Security Deposit</div>
                 <div class="invoice-item-meta">Refundable deposit collected with this invoice.</div>
               </td>
+              <td>—</td>
               <td class="num">1.00</td>
               <td class="num">&#8377;{{ '{:,.2f}'.format(deposit_amount) }}</td>
               <td class="num">Exempt</td>
@@ -426,7 +411,7 @@
       <section class="invoice-totals-wrap">
         <div class="invoice-note-box">
           <strong>Terms & Conditions</strong><br>
-          https://homzho.odoo.com/terms<br>
+          https://homzho.in/terms<br>
           {% if not is_gst_invoice %}
           <span>GST has not been charged on this invoice.</span><br>
           {% endif %}

@@ -9,6 +9,7 @@ from extensions import db
 from models.expense import Expense
 from utils.helpers import log_activity, get_page_items
 from utils.file_handler import save_upload
+from services.accounting_service import sync_expense_to_ledger
 
 expense_bp = Blueprint('expenses', __name__, url_prefix='/expenses')
 
@@ -103,6 +104,8 @@ def add():
                     flash(f'Bill image skipped: {ve}', 'warning')
 
             db.session.add(expense)
+            db.session.flush()
+            sync_expense_to_ledger(expense, current_user.username)
             db.session.commit()
             log_activity(current_user.username, 'Add', 'Expense', expense.expense_id,
                          f'Expense {expense.expense_category} ₹{expense.amount}', request.remote_addr)

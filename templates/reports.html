@@ -116,7 +116,7 @@
             <tbody>
               {% for exp in expense_breakdown %}
               <tr>
-                <td>{{ exp.expense_category }}</td>
+                <td>{{ exp.category }}</td>
                 <td class="text-end fw-600">₹{{ '{:,.0f}'.format(exp.total) }}</td>
               </tr>
               {% else %}

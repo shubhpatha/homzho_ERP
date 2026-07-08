@@ -190,6 +190,8 @@ def index():
                                ('payments',    'Payments'),
                                ('maintenance', 'Maintenance'),
                                ('expenses',    'Expenses'),
+                               ('accounting',  'Accounting'),
+                               ('inventory',   'Inventory'),
                                ('uploads',     'Uploads'),
                                ('reports',     'Reports'),
                            ],

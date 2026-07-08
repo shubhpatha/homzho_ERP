@@ -2,14 +2,11 @@
 services/dashboard_service.py - Data aggregation for the dashboard.
 """
 from datetime import date, timedelta
-from sqlalchemy import func, extract
-from extensions import db
 from models.customer import Customer
 from models.machine import Machine
 from models.payment import Payment
-from models.maintenance import Maintenance
-from models.expense import Expense
 from utils.tax import calculate_inclusive_gst
+from services.accounting_service import ledger_total
 
 
 def get_dashboard_stats() -> dict:
@@ -48,20 +45,11 @@ def get_dashboard_stats() -> dict:
         .count()
     )
 
-    # Monthly revenue (current month)
-    monthly_revenue = db.session.query(
-        func.coalesce(func.sum(Payment.amount_paid), 0)
-    ).filter(
-        Payment.payment_date >= first_of_month
-    ).scalar() or 0
+    # Monthly collections and expenses come from the unified ledger.
+    monthly_revenue = ledger_total('Income', first_of_month)
     monthly_tax = calculate_inclusive_gst(monthly_revenue)
 
-    # Monthly expenses (current month)
-    monthly_expenses = db.session.query(
-        func.coalesce(func.sum(Expense.amount), 0)
-    ).filter(
-        Expense.expense_date >= first_of_month
-    ).scalar() or 0
+    monthly_expenses = ledger_total('Expense', first_of_month)
     monthly_net_profit = monthly_tax['taxable_amount'] - float(monthly_expenses)
 
     return {
@@ -94,12 +82,7 @@ def get_monthly_collections(months: int = 6) -> list:
         else:
             month_end = month_start.replace(month=month_start.month + 1, day=1)
 
-        total = db.session.query(
-            func.coalesce(func.sum(Payment.amount_paid), 0)
-        ).filter(
-            Payment.payment_date >= month_start,
-            Payment.payment_date < month_end
-        ).scalar() or 0
+        total = ledger_total('Income', month_start, month_end - timedelta(days=1))
         tax = calculate_inclusive_gst(total)
 
         result.append({
@@ -123,12 +106,7 @@ def get_monthly_expenses_chart(months: int = 6) -> list:
         else:
             month_end = month_start.replace(month=month_start.month + 1, day=1)
 
-        total = db.session.query(
-            func.coalesce(func.sum(Expense.amount), 0)
-        ).filter(
-            Expense.expense_date >= month_start,
-            Expense.expense_date < month_end
-        ).scalar() or 0
+        total = ledger_total('Expense', month_start, month_end - timedelta(days=1))
 
         result.append({
             'month': month_start.strftime('%b %Y'),

@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}Edit Invoice {{ payment.invoice_no }} – Homzho ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+  .invoice-builder-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 18px;
+    align-items: start;
+  }
+  .invoice-items-table { min-width: 860px; }
+  .invoice-items-table th { background: var(--surface2); }
+  .invoice-items-table .col-description { min-width: 220px; }
+  .invoice-items-table .col-hsn { width: 110px; }
+  .invoice-items-table .col-qty { width: 100px; }
+  .invoice-items-table .col-rate,
+  .invoice-items-table .col-total { width: 140px; }
+  .invoice-items-table .col-action { width: 48px; }
+  .invoice-line-total {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-weight: 600;
+  }
+  .summary-panel { position: sticky; top: calc(var(--topbar-h) + 18px); }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-row strong { color: var(--text); }
+  .summary-row.total { font-size: 18px; font-weight: 700; color: var(--primary); border-bottom: 0; padding-top: 14px; }
+  .summary-row.balance { font-weight: 700; border-bottom: 0; }
+  .frozen-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #f1f5f9; border: 1px solid #d9e2ec;
+    border-radius: 6px; padding: 6px 12px;
+    font-size: 13px; color: #475569;
+  }
+  .tax-mode-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tax-mode-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px; cursor: pointer; min-height: 74px;
+    transition: border-color .2s, background .2s;
+  }
+  .tax-mode-card:hover { border-color: var(--primary); }
+  .tax-mode-card:has(.form-check-input:checked) { background: var(--primary-light); border-color: var(--primary); }
+  .tax-mode-card .form-check-input { margin-top: 3px; flex-shrink: 0; }
+  .tax-mode-title { display: block; color: var(--text); font-weight: 700; line-height: 1.25; }
+  .tax-mode-help { display: block; color: var(--text-muted); font-size: 12px; line-height: 1.35; margin-top: 2px; }
+  @media (max-width: 992px) {
+    .invoice-builder-grid { grid-template-columns: 1fr; }
+    .summary-panel { position: static; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('payments.index') }}">Payments</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('payments.view', payment_id=payment.payment_id) }}">{{ payment.invoice_no }}</a></li>
+      <li class="breadcrumb-item active">Edit</li>
+    </ol></nav>
+    <h1 class="page-title">Edit Invoice</h1>
+  </div>
+  <div class="page-actions">
+    {# Show frozen fields as read-only badges so user can see what is locked #}
+    <span class="frozen-badge"><i class="bi bi-lock-fill text-warning"></i> Invoice No: <strong>{{ payment.invoice_no }}</strong></span>
+    <span class="frozen-badge"><i class="bi bi-lock-fill text-warning"></i> Next Due: <strong>{{ payment.next_due_date.strftime('%d %b %Y') if payment.next_due_date else 'Not set' }}</strong></span>
+  </div>
+</div>
+
+<div class="alert alert-warning d-flex gap-2 align-items-start mb-3">
+  <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+  <div>
+    <strong>Invoice Number and Next Due Date are frozen</strong> and will not change. You can correct the amount, items, payment mode, and reference number below.
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('payments.edit', payment_id=payment.payment_id) }}" novalidate id="editPaymentForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+  <div class="invoice-builder-grid">
+    <div class="d-grid gap-3">
+
+      {# ── Frozen Info ── #}
+      <div class="card">
+        <div class="card-header"><i class="bi bi-person-vcard text-primary"></i> Payment Info</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Customer</label>
+              <div class="fw-600">{{ payment.customer.cust_name if payment.customer else '—' }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Payment Date</label>
+              <div class="fw-600">{{ payment.payment_date.strftime('%d %b %Y') }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Mode <span class="text-danger">*</span></label>
+              <select name="payment_mode" class="form-select" required>
+                {% for m in payment_modes %}
+                <option value="{{ m }}" {% if payment.payment_mode == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Transaction ID / Reference</label>
+              <input type="text" name="transaction_id" class="form-control"
+                     value="{{ payment.transaction_id or '' }}" placeholder="UPI ref / cheque no" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Invoice Type</label>
+              <div class="tax-mode-options">
+                <label class="tax-mode-card" for="edit_tax_gst">
+                  <input class="form-check-input invoice-tax-mode" type="radio" name="invoice_tax_mode"
+                         id="edit_tax_gst" value="gst" {% if invoice.is_gst_invoice %}checked{% endif %}>
+                  <span>
+                    <span class="tax-mode-title">With GST</span>
+                    <span class="tax-mode-help">CGST + SGST breakup at 18% (inclusive).</span>
+                  </span>
+                </label>
+                <label class="tax-mode-card" for="edit_tax_non_gst">
+                  <input class="form-check-input invoice-tax-mode" type="radio" name="invoice_tax_mode"
+                         id="edit_tax_non_gst" value="non_gst" {% if not invoice.is_gst_invoice %}checked{% endif %}>
+                  <span>
+                    <span class="tax-mode-title">Without GST</span>
+                    <span class="tax-mode-help">Plain invoice, no GST lines shown.</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── Invoice Items ── #}
+      <div class="card">
+        <div class="card-header justify-content-between">
+          <span><i class="bi bi-receipt-cutoff text-success"></i> Invoice Items</span>
+          <button type="button" class="btn btn-outline-primary btn-sm" id="addItemBtn">
+            <i class="bi bi-plus-circle"></i> Add Row
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table invoice-items-table mb-0">
+              <thead>
+                <tr>
+                  <th class="col-description">Product / Service</th>
+                  <th class="col-hsn">HSN / SAC</th>
+                  <th class="col-qty text-end">Qty</th>
+                  <th class="col-rate text-end">Rate (₹)</th>
+                  <th class="col-total text-end">Total</th>
+                  <th class="col-action"></th>
+                </tr>
+              </thead>
+              <tbody id="invoiceItemsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {# ── Deposit ── #}
+      <div class="card">
+        <div class="card-header"><i class="bi bi-shield-check text-warning"></i> Deposit</div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       id="include_deposit" name="include_deposit" value="1"
+                       {% if invoice.deposit_amount > 0 %}checked{% endif %}>
+                <label class="form-check-label" for="include_deposit">Include deposit</label>
+              </div>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label">Deposit Amount (&#8377;)</label>
+              <input type="number" name="deposit_amount" id="deposit_amount" class="form-control"
+                     min="0" step="0.01"
+                     value="{{ '%.2f' % invoice.deposit_amount }}"
+                     {% if invoice.deposit_amount <= 0 %}disabled{% endif %} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── Collection ── #}
+      <div class="card">
+        <div class="card-header"><i class="bi bi-cash-stack text-success"></i> Collection Details</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Amount Due (&#8377;)</label>
+              <input type="number" name="amount_due" id="amount_due" class="form-control" min="0" step="0.01" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Amount Paid (&#8377;) <span class="text-danger">*</span></label>
+              <input type="number" name="amount_paid" id="amount_paid" class="form-control"
+                     min="0" step="0.01" value="{{ '%.2f' % payment.amount_paid }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Collected By</label>
+              <input type="text" name="collected_by" class="form-control"
+                     value="{{ payment.collected_by or '' }}" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remark" class="form-control" rows="2">{{ payment.remark or '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="summary-panel">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-calculator text-primary"></i> Invoice Summary</div>
+        <div class="card-body">
+          <div class="summary-row">
+            <span id="summaryItemsLabel">Taxable items</span>
+            <strong id="summaryTaxableItems">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row gst-summary-row">
+            <span>Cost before GST</span>
+            <strong id="summaryTaxableBase">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row gst-summary-row">
+            <span>CGST @ 9%</span>
+            <strong id="summaryCgst">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row gst-summary-row">
+            <span>SGST @ 9%</span>
+            <strong id="summarySgst">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>Deposit</span>
+            <strong id="summaryDeposit">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row total">
+            <span>Total</span>
+            <strong id="summaryTotal">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>Amount paid</span>
+            <strong id="summaryPaid">&#8377;0.00</strong>
+          </div>
+          <div class="summary-row balance">
+            <span>Balance</span>
+            <strong id="summaryBalance">&#8377;0.00</strong>
+          </div>
+        </div>
+        <div class="card-body border-top">
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-warning btn-lg">
+              <i class="bi bi-save-fill"></i> Save Changes
+            </button>
+            <a href="{{ url_for('payments.view', payment_id=payment.payment_id) }}" class="btn btn-outline-secondary">
+              Cancel
+            </a>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{# Pass existing items from Python to JS #}
+<script>
+const EXISTING_ITEMS = {{ invoice.invoice_items | tojson }};
+const EXISTING_DEPOSIT = {{ invoice.deposit_amount }};
+</script>
+<script>
+(() => {
+  const GST_RATE = 0.18;
+  const itemsBody = document.getElementById('invoiceItemsBody');
+  const addItemBtn = document.getElementById('addItemBtn');
+  const includeDeposit = document.getElementById('include_deposit');
+  const depositInput = document.getElementById('deposit_amount');
+  const amountDueInput = document.getElementById('amount_due');
+  const amountPaidInput = document.getElementById('amount_paid');
+  const taxModeInputs = document.querySelectorAll('.invoice-tax-mode');
+
+  const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number.isFinite(value) ? value : 0);
+  const amount = (value, fallback = 0) => { const p = Number.parseFloat(value); return Number.isFinite(p) && p >= 0 ? p : fallback; };
+  const escapeAttr = (v) => String(v || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const formatQty = (v) => { const p = amount(v); return Number.isInteger(p) ? p.toString() : p.toFixed(2); };
+  const rowCount = () => itemsBody.querySelectorAll('tr').length;
+
+  const updateRemoveButtons = () => {
+    itemsBody.querySelectorAll('.remove-item-btn').forEach(btn => btn.disabled = rowCount() <= 1);
+  };
+
+  const recalc = () => {
+    const isGst = document.querySelector('.invoice-tax-mode:checked')?.value !== 'non_gst';
+    let taxableItems = 0;
+    itemsBody.querySelectorAll('tr').forEach(row => {
+      const qty = amount(row.querySelector('.item-quantity').value, 1);
+      const rate = amount(row.querySelector('.item-unit-price').value);
+      const lineTotal = qty * rate;
+      taxableItems += lineTotal;
+      row.querySelector('.invoice-line-total').textContent = money(lineTotal);
+    });
+    const deposit = includeDeposit.checked ? amount(depositInput.value) : 0;
+    const taxableBase = isGst ? taxableItems / (1 + GST_RATE) : taxableItems;
+    const cgst = isGst ? taxableBase * 0.09 : 0;
+    const sgst = isGst ? taxableBase * 0.09 : 0;
+    const total = taxableItems + deposit;
+    const paid = amount(amountPaidInput.value);
+    const balance = Math.max(total - paid, 0);
+    amountDueInput.value = total.toFixed(2);
+    document.getElementById('summaryItemsLabel').textContent = isGst ? 'Taxable items' : 'Bill items';
+    document.querySelectorAll('.gst-summary-row').forEach(r => r.classList.toggle('d-none', !isGst));
+    document.getElementById('summaryTaxableItems').textContent = money(taxableItems);
+    document.getElementById('summaryTaxableBase').textContent = money(taxableBase);
+    document.getElementById('summaryCgst').textContent = money(cgst);
+    document.getElementById('summarySgst').textContent = money(sgst);
+    document.getElementById('summaryDeposit').textContent = money(deposit);
+    document.getElementById('summaryTotal').textContent = money(total);
+    document.getElementById('summaryPaid').textContent = money(paid);
+    document.getElementById('summaryBalance').textContent = money(balance);
+  };
+
+  const addItemRow = (description = '', quantity = 1, unitPrice = 0, hsnSac = '') => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><input type="text" name="item_description" class="form-control item-description" value="${escapeAttr(description)}" placeholder="Water purifier rental" required /></td>
+      <td><input type="text" name="item_hsn_sac" class="form-control item-hsn-sac" value="${escapeAttr(hsnSac)}" placeholder="e.g. 998711" /></td>
+      <td><input type="number" name="item_quantity" class="form-control text-end item-quantity" min="0.01" step="0.01" value="${formatQty(quantity)}" required /></td>
+      <td><input type="number" name="item_unit_price" class="form-control text-end item-unit-price" min="0" step="0.01" value="${amount(unitPrice).toFixed(2)}" required /></td>
+      <td class="text-end"><div class="invoice-line-total">&#8377;0.00</div></td>
+      <td><button type="button" class="btn btn-icon btn-sm btn-outline-danger remove-item-btn" title="Remove"><i class="bi bi-trash"></i></button></td>
+    `;
+    itemsBody.appendChild(row);
+    row.querySelectorAll('input').forEach(input => input.addEventListener('input', recalc));
+    row.querySelector('.remove-item-btn').addEventListener('click', () => { row.remove(); updateRemoveButtons(); recalc(); });
+    updateRemoveButtons();
+    recalc();
+  };
+
+  // Load existing items from server
+  if (EXISTING_ITEMS && EXISTING_ITEMS.length) {
+    EXISTING_ITEMS.forEach(item => addItemRow(item.description || '', item.quantity || 1, item.unit_price || 0, item.hsn_sac || ''));
+  } else {
+    addItemRow('Water Purifier Rental Services', 1, 0);
+  }
+
+  includeDeposit.addEventListener('change', () => { depositInput.disabled = !includeDeposit.checked; recalc(); });
+  depositInput.addEventListener('input', recalc);
+  amountPaidInput.addEventListener('input', recalc);
+  taxModeInputs.forEach(input => input.addEventListener('change', recalc));
+  addItemBtn.addEventListener('click', () => addItemRow('', 1, 0));
+
+  recalc();
+})();
+</script>
+{% endblock %}

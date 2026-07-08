@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Add Inventory Item - Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('inventory.index') }}">Inventory</a></li>
+      <li class="breadcrumb-item active">Add Item</li>
+    </ol></nav>
+    <h1 class="page-title">Add Inventory Item</h1>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-box-seam text-primary"></i> Item Details</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('inventory.add_item') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Item Name <span class="text-danger">*</span></label>
+              <input type="text" name="item_name" class="form-control" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Category</label>
+              <select name="category" class="form-select">
+                {% for c in categories %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Opening Stock</label>
+              <input type="number" name="current_stock" class="form-control" min="0" step="0.01" value="0" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Unit</label>
+              <select name="unit" class="form-select">
+                {% for unit in units %}
+                <option value="{{ unit }}">{{ unit }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Reorder Level</label>
+              <input type="number" name="reorder_level" class="form-control" min="0" step="0.01" value="0" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Unit Cost (&#8377;)</label>
+              <input type="number" name="unit_cost" class="form-control" min="0" step="0.01" value="0" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Vendor</label>
+              <input type="text" name="vendor_name" class="form-control" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remarks" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2 mt-4">
+              <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Item</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
