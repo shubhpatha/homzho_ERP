@@ -96,6 +96,7 @@ def add():
             source=request.form.get('source', 'Organic'),
             score=request.form.get('score', 'Warm'),
             status=request.form.get('status', 'New'),
+            contacted_by=request.form.get('contacted_by', '').strip() or None,
             notes=request.form.get('notes', '').strip()
         )
 
@@ -155,6 +156,7 @@ def edit(lead_id):
         lead.source = request.form.get('source', lead.source)
         lead.score = request.form.get('score', lead.score)
         lead.status = request.form.get('status', lead.status)
+        lead.contacted_by = request.form.get('contacted_by', '').strip() or None
         lead.notes = request.form.get('notes', '').strip()
 
         # Next contact date

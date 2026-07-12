@@ -83,6 +83,14 @@
               <div class="form-text">Clear this field to remove the follow-up date.</div>
             </div>
 
+            <div class="col-md-6">
+              <label class="form-label"><i class="bi bi-person-badge text-primary"></i> Contacted By</label>
+              <input type="text" name="contacted_by" class="form-control"
+                     value="{{ lead.contacted_by or '' }}"
+                     placeholder="e.g. Rahul, Sales Team" />
+              <div class="form-text">Who contacted or will be following up on this lead.</div>
+            </div>
+
             <div class="col-12">
               <label class="form-label">Notes</label>
               <textarea name="notes" class="form-control" rows="4">{{ lead.notes or '' }}</textarea>

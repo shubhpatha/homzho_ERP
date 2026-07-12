@@ -21,6 +21,7 @@ class Lead(db.Model):
     # Referral Tracking
     referred_by_id = db.Column(db.Integer, db.ForeignKey('customers.cust_id'), nullable=True)
     
+    contacted_by = db.Column(db.String(100), nullable=True)  # Staff member who contacted this lead
     notes = db.Column(db.Text)
     next_contact_date = db.Column(db.Date, nullable=True)  # Manually set follow-up date
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

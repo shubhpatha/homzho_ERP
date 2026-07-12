@@ -73,7 +73,9 @@
           <label class="form-label text-muted mb-1"><i class="bi bi-calendar-event"></i> Next Contact Date</label>
           {% set today = today if today is defined else none %}
           {% if lead.next_contact_date %}
-            {% if today and lead.next_contact_date < today %}
+            {% if lead.status == 'Converted' %}
+            <div class="fw-500 text-muted"><i class="bi bi-calendar-check"></i> {{ lead.next_contact_date.strftime('%d %b %Y') }}</div>
+            {% elif today and lead.next_contact_date < today %}
             <div class="d-flex align-items-center gap-2">
               <span class="badge bg-danger fs-6 px-3 py-2"><i class="bi bi-exclamation-circle-fill"></i> OVERDUE — {{ lead.next_contact_date.strftime('%d %b %Y') }}</span>
             </div>
@@ -88,6 +90,12 @@
           <div class="text-muted fst-italic">Not set — <a href="{{ url_for('leads.edit', lead_id=lead.lead_id) }}">set a date</a></div>
           {% endif %}
         </div>
+        {% if lead.contacted_by %}
+        <div class="mt-3">
+          <label class="form-label text-muted mb-0"><i class="bi bi-person-badge"></i> Contacted By</label>
+          <div class="fw-500">{{ lead.contacted_by }}</div>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>

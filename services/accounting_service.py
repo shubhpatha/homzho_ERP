@@ -126,6 +126,28 @@ def sync_maintenance_to_ledger(record, created_by=None):
     return main, travel
 
 
+def sync_installation_cost_to_ledger(customer, created_by=None):
+    """Track installation cost for a customer as an expense in the ledger.
+
+    Uses source_type='customer' + source_id=cust_id so the ledger row is
+    upserted (created or updated) whenever the customer's installation_cost
+    changes, and removed automatically if the cost is cleared to zero.
+    """
+    return upsert_ledger_entry(
+        entry_date=customer.installation_date or customer.plan_start_date,
+        entry_type='Expense',
+        category='Installation',
+        amount=customer.installation_cost,
+        payment_mode='Cash',
+        party_name=customer.installed_by or customer.cust_name,
+        description=f'Installation cost for {customer.cust_name} ({customer.machine_serial_no or "no machine"})',
+        source_type='customer',
+        source_id=customer.cust_id,
+        reference_no=f'CUST-{customer.cust_id}',
+        created_by=created_by,
+    )
+
+
 def ledger_total(entry_type, start_date=None, end_date=None):
     query = db.session.query(func.coalesce(func.sum(AccountLedger.amount), 0)).filter(
         AccountLedger.entry_type == entry_type

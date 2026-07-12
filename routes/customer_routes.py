@@ -15,6 +15,7 @@ from models.upload import Upload
 from services.export_service import (
     export_customers_csv, get_customer_import_template, import_customers_csv
 )
+from services.accounting_service import sync_installation_cost_to_ledger
 from utils.helpers import log_activity, get_page_items
 
 customer_bp = Blueprint('customers', __name__, url_prefix='/customers')
@@ -195,6 +196,9 @@ def add():
                     remarks='Initial assignment on customer creation',
                 ))
 
+            db.session.commit()
+            # Sync installation cost to the accounting ledger
+            sync_installation_cost_to_ledger(customer, created_by=current_user.username)
             db.session.commit()
             log_activity(
                 user_name=current_user.username,
@@ -425,6 +429,9 @@ def edit(cust_id):
                     machine.installation_date = assignment_date
                     machine.next_service_date = customer.next_service_date
 
+            db.session.commit()
+            # Sync (upsert or remove) installation cost in the accounting ledger
+            sync_installation_cost_to_ledger(customer, created_by=current_user.username)
             db.session.commit()
             log_activity(current_user.username, 'Edit', 'Customer', cust_id,
                          f'Edited customer: {customer.cust_name}', request.remote_addr)

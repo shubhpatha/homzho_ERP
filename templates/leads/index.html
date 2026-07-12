@@ -63,8 +63,8 @@
       </thead>
       <tbody>
         {% for lead in leads %}
-        {% set overdue = lead.next_contact_date and lead.next_contact_date < today %}
-        {% set due_today = lead.next_contact_date and lead.next_contact_date == today %}
+        {% set overdue = lead.next_contact_date and lead.next_contact_date < today and lead.status != 'Converted' %}
+        {% set due_today = lead.next_contact_date and lead.next_contact_date == today and lead.status != 'Converted' %}
         <tr onclick="window.location='{{ url_for('leads.view', lead_id=lead.lead_id) }}'"
             style="cursor:pointer;"
             class="{% if overdue %}table-danger{% elif due_today %}table-warning{% endif %}">
@@ -86,7 +86,9 @@
           </td>
           <td>
             {% if lead.next_contact_date %}
-              {% if overdue %}
+              {% if lead.status == 'Converted' %}
+              <span class="text-muted"><i class="bi bi-calendar-check"></i> {{ lead.next_contact_date.strftime('%d %b %Y') }}</span>
+              {% elif overdue %}
               <span class="text-danger fw-600"><i class="bi bi-exclamation-circle-fill"></i> {{ lead.next_contact_date.strftime('%d %b %Y') }}</span>
               {% elif due_today %}
               <span class="text-warning fw-600"><i class="bi bi-telephone-fill"></i> Today</span>
