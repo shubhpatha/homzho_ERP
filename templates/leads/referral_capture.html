@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Request a Callback - Homzho{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <div class="auth-logo">
+    <div class="auth-logo-icon"><i class="bi bi-droplet-fill"></i></div>
+    <span class="auth-logo-text">Homzho</span>
+  </div>
+
+  {% if invalid_link %}
+    <h1 class="auth-title">Referral Link Expired</h1>
+    <p class="auth-sub">This referral link is not valid anymore. Please ask the customer to share a fresh link.</p>
+  {% elif submitted %}
+    <h1 class="auth-title">Thank You</h1>
+    <p class="auth-sub">Your request has been received. Our team will contact you shortly.</p>
+    {% if referrer %}
+    <div class="info-box info-box-success mt-3">
+      <i class="bi bi-check-circle-fill"></i>
+      <span>Referral recorded from {{ referrer.cust_name }}.</span>
+    </div>
+    {% endif %}
+  {% elif already_exists %}
+    <h1 class="auth-title">We Already Have Your Details</h1>
+    <p class="auth-sub">Our team already has this phone number and will follow up if needed.</p>
+  {% else %}
+    <h1 class="auth-title">Request a Callback</h1>
+    <p class="auth-sub">
+      {% if referrer %}
+        You were referred by {{ referrer.cust_name }}. Share your phone number and our team will call you.
+      {% else %}
+        Share your phone number and our team will call you.
+      {% endif %}
+    </p>
+
+    {% if errors and errors.form %}
+    <div class="alert alert-danger">{{ errors.form }}</div>
+    {% endif %}
+
+    <form method="POST" action="{{ request.path }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="mb-3">
+        <label class="form-label">Phone Number <span class="text-danger">*</span></label>
+        <div class="position-relative">
+          <i class="bi bi-telephone position-absolute top-50 translate-middle-y ms-3 text-muted"></i>
+          <input type="tel" name="contact_number" class="form-control ps-5"
+                 value="{{ form_data.contact_number if form_data else '' }}"
+                 placeholder="10-digit mobile" required maxlength="15" autocomplete="tel" />
+        </div>
+        {% if errors and errors.contact_number %}
+        <div class="text-danger small mt-1">{{ errors.contact_number }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <div class="position-relative">
+          <i class="bi bi-person position-absolute top-50 translate-middle-y ms-3 text-muted"></i>
+          <input type="text" name="name" class="form-control ps-5"
+                 value="{{ form_data.name if form_data else '' }}"
+                 placeholder="Your name" autocomplete="name" />
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Email</label>
+        <div class="position-relative">
+          <i class="bi bi-envelope position-absolute top-50 translate-middle-y ms-3 text-muted"></i>
+          <input type="email" name="email_id" class="form-control ps-5"
+                 value="{{ form_data.email_id if form_data else '' }}"
+                 placeholder="email@example.com" autocomplete="email" />
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100 btn-lg">
+        <i class="bi bi-send-fill me-2"></i> Request Callback
+      </button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

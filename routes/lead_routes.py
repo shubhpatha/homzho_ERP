@@ -9,13 +9,103 @@ from models.customer import Customer
 from models.plan import Plan
 from services.meta_service import send_conversion_event
 from services.whatsapp_service import get_lead_followup_link
-from utils.helpers import log_activity, get_page_items
+from utils.helpers import clean_phone, log_activity, get_page_items
+from utils.referrals import load_referral_customer_id
 
 lead_bp = Blueprint('leads', __name__, url_prefix='/leads')
 
 LEAD_SOURCES = ['Organic', 'Meta Ads', 'Google Ads', 'Referral', 'Other']
 LEAD_SCORES = ['Hot', 'Warm', 'Cold']
 LEAD_STATUSES = ['New', 'Contacted', 'Qualified', 'Lost', 'Converted']
+
+
+@lead_bp.route('/ref/<token>', methods=['GET', 'POST'])
+def referral_capture(token):
+    """Public referral lead form opened from an existing customer's share link."""
+    referrer_id = load_referral_customer_id(token)
+    referrer = db.session.get(Customer, referrer_id) if referrer_id else None
+    if not referrer or referrer.customer_status != 'Active':
+        return render_template('leads/referral_capture.html', invalid_link=True), 404
+
+    form_data = {
+        'name': request.form.get('name', '').strip(),
+        'contact_number': request.form.get('contact_number', '').strip(),
+        'email_id': request.form.get('email_id', '').strip(),
+    }
+    errors = {}
+
+    if request.method == 'POST':
+        contact = clean_phone(form_data['contact_number'])
+        if not contact:
+            errors['contact_number'] = 'Phone number is required.'
+        elif len(contact) < 10 or len(contact) > 15:
+            errors['contact_number'] = 'Enter a valid 10-15 digit phone number.'
+
+        existing_customer = Customer.query.filter_by(contact_number=contact).first() if contact else None
+        existing_lead = Lead.query.filter_by(contact_number=contact).first() if contact else None
+
+        if not errors and existing_customer:
+            return render_template(
+                'leads/referral_capture.html',
+                referrer=referrer,
+                already_exists=True,
+            )
+
+        if not errors and existing_lead:
+            if not existing_lead.referred_by_id:
+                existing_lead.referred_by_id = referrer.cust_id
+                existing_lead.source = 'Referral'
+                existing_lead.notes = (existing_lead.notes or '').strip()
+                referral_note = f'Referral link submitted by {referrer.cust_name}.'
+                if referral_note not in existing_lead.notes:
+                    existing_lead.notes = f"{existing_lead.notes}\n{referral_note}".strip()
+                db.session.commit()
+            return render_template(
+                'leads/referral_capture.html',
+                referrer=referrer,
+                submitted=True,
+            )
+
+        if not errors:
+            name = form_data['name'] or f'Referral Lead {contact[-4:]}'
+            lead = Lead(
+                name=name,
+                contact_number=contact,
+                email_id=form_data['email_id'] or None,
+                source='Referral',
+                score='Warm',
+                status='New',
+                referred_by_id=referrer.cust_id,
+                notes=f'Referral link submitted by {referrer.cust_name}.',
+            )
+            try:
+                db.session.add(lead)
+                db.session.commit()
+                log_activity(
+                    'Public Referral',
+                    'Add',
+                    'Lead',
+                    lead.lead_id,
+                    f'Referral lead from customer #{referrer.cust_id}',
+                    request.remote_addr,
+                )
+                send_conversion_event(lead, event_name="Lead")
+                return render_template(
+                    'leads/referral_capture.html',
+                    referrer=referrer,
+                    submitted=True,
+                )
+            except Exception as exc:
+                db.session.rollback()
+                current_app.logger.error(f'Error adding referral lead: {exc}', exc_info=True)
+                errors['form'] = 'We could not save your request right now. Please try again.'
+
+    return render_template(
+        'leads/referral_capture.html',
+        referrer=referrer,
+        form_data=form_data,
+        errors=errors,
+    )
 
 @lead_bp.route('/')
 @login_required

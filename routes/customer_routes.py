@@ -2,6 +2,7 @@
 routes/customer_routes.py - Full customer CRUD with search, filter, CSV import/export.
 """
 from datetime import date, timedelta
+import urllib.parse
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, Response, current_app)
 from flask_login import login_required, current_user
@@ -16,6 +17,7 @@ from services.export_service import (
     export_customers_csv, get_customer_import_template, import_customers_csv
 )
 from services.accounting_service import sync_installation_cost_to_ledger
+from utils.referrals import generate_referral_token
 from utils.helpers import log_activity, get_page_items
 
 customer_bp = Blueprint('customers', __name__, url_prefix='/customers')
@@ -277,6 +279,13 @@ def view(cust_id):
     maintenance_records = Maintenance.query.filter_by(customer_id=cust_id).order_by(Maintenance.service_date.desc()).all()
     uploads = Upload.query.filter_by(customer_id=cust_id).order_by(Upload.uploaded_at.desc()).all()
     assignment_history = MachineAssignmentHistory.query.filter_by(customer_id=cust_id).order_by(MachineAssignmentHistory.assigned_on.desc()).all()
+    referral_token = generate_referral_token(customer.cust_id)
+    referral_link = url_for('leads.referral_capture', token=referral_token, _external=True)
+    referral_share_text = (
+        f"Hi, I use Homzho water purifier service. "
+        f"You can request a callback here: {referral_link}"
+    )
+    referral_whatsapp_link = f"https://wa.me/?text={urllib.parse.quote(referral_share_text)}"
 
     return render_template(
         'customers/view.html',
@@ -285,6 +294,8 @@ def view(cust_id):
         maintenance_records=maintenance_records,
         uploads=uploads,
         assignment_history=assignment_history,
+        referral_link=referral_link,
+        referral_whatsapp_link=referral_whatsapp_link,
         active_page='customers',
         today=date.today(),
     )

@@ -49,6 +49,32 @@
       </div>
     </div>
 
+
+
+    <!-- Referral Card -->
+    {% if customer.customer_status == 'Active' and referral_link %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-share-fill text-success"></i> Referral Link</div>
+      <div class="card-body">
+        <label class="form-label">Customer referral URL</label>
+        <div class="input-group mb-2">
+          <input type="text" class="form-control" id="referralLinkInput" value="{{ referral_link }}" readonly />
+          <button type="button" class="btn btn-outline-primary" id="copyReferralLinkBtn">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="{{ referral_whatsapp_link }}" target="_blank" class="btn btn-success btn-sm">
+            <i class="bi bi-whatsapp"></i> Share
+          </a>
+          <a href="{{ referral_link }}" target="_blank" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-box-arrow-up-right"></i> Open Form
+          </a>
+        </div>
+        <small class="text-muted d-block mt-2">Leads submitted through this link will be marked as referred by {{ customer.cust_name }}.</small>
+      </div>
+    </div>
+    {% endif %}
     <!-- Plan Card -->
     <div class="card mb-3">
       <div class="card-header"><i class="bi bi-file-earmark-text text-primary"></i> Rental Plan</div>
@@ -289,4 +315,24 @@
   </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const input = document.getElementById('referralLinkInput');
+  const button = document.getElementById('copyReferralLinkBtn');
+  if (!input || !button) return;
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(input.value);
+      button.innerHTML = '<i class="bi bi-check2"></i>';
+      setTimeout(() => { button.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1600);
+    } catch (error) {
+      input.select();
+      document.execCommand('copy');
+    }
+  });
+})();
+</script>
 {% endblock %}
