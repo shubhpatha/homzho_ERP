@@ -51,11 +51,12 @@
               <input type="number" name="water_tds" class="form-control" placeholder="e.g. 45" step="0.1" />
             </div>
             <div class="col-md-6">
-              <label class="form-label">Maintenance Cost (₹)</label>
-              <input type="number" name="main_exp" class="form-control" placeholder="0" min="0" step="0.01" />
+              <label class="form-label">Maintenance Cost (&#8377;)</label>
+              <input type="number" name="main_exp" id="mainExpInput" class="form-control" placeholder="0" min="0" step="0.01" />
+              <div class="form-text">Auto-filled from parts selected below. You can edit manually too.</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Travel Cost (₹)</label>
+              <label class="form-label">Travel Cost (&#8377;)</label>
               <input type="number" name="travel_exp" class="form-control" placeholder="0" min="0" step="0.01" />
             </div>
             <div class="col-12">
@@ -64,10 +65,43 @@
                 <label class="form-check-label fw-600" for="filter_changed">Filters were changed during this service</label>
               </div>
             </div>
+
+            {# Free-text parts replaced field — kept as-is for backward compatibility #}
             <div class="col-12">
-              <label class="form-label">Parts Replaced</label>
+              <label class="form-label">Parts Replaced <small class="text-muted">(free-text notes)</small></label>
               <input type="text" name="parts_replaced" class="form-control" placeholder="e.g. Carbon filter, RO membrane" />
             </div>
+
+            {# ═══════════════════════════════════════════════════════════════ #}
+            {# Parts Used from Inventory (structured, optional)               #}
+            {# Each row posts part_item_id[] + part_qty[] to the server.      #}
+            {# The route uses deduct_inventory_for_maintenance() to           #}
+            {# auto-decrement stock and create InventoryMovement records.     #}
+            {# ═══════════════════════════════════════════════════════════════ #}
+            <div class="col-12 mt-2">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <label class="form-label mb-0 fw-600">
+                  <i class="bi bi-box-seam text-primary me-1"></i>
+                  Parts Used from Inventory
+                  <small class="text-muted fw-normal ms-1">(optional — auto-deducts stock on save)</small>
+                </label>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="addPartRow">
+                  <i class="bi bi-plus-circle"></i> Add Part
+                </button>
+              </div>
+
+              <div id="partsContainer">
+                {# Rows injected here by JS #}
+              </div>
+
+              <div id="noInventoryMsg" class="alert alert-info py-2 small mt-1" style="display:none;">
+                <i class="bi bi-info-circle"></i>
+                No inventory items found.
+                <a href="{{ url_for('inventory.add_item') }}" target="_blank">Add items to inventory</a> first.
+              </div>
+            </div>
+            {# ═══════════════════════════════════════════════════════════════ #}
+
             <div class="col-md-6">
               <label class="form-label">Customer Feedback</label>
               <select name="customer_feedback" class="form-select">
@@ -97,4 +131,188 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+
+  /* ── Inventory data — fetched once from server, then cached ─────── */
+  var inventoryItems = [];
+  var itemsLoaded    = false;
+
+  function fetchInventoryItems(callback) {
+    if (itemsLoaded) { callback(); return; }
+    fetch('{{ url_for("maintenance.api_inventory_items") }}', {
+      credentials: 'same-origin'   /* send session cookie — required for @login_required */
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        inventoryItems = data || [];
+        itemsLoaded    = true;
+        if (inventoryItems.length === 0) {
+          document.getElementById('noInventoryMsg').style.display = 'block';
+          document.getElementById('addPartRow').disabled = true;
+        }
+        callback();
+      })
+      .catch(function () {
+        /* Network / parse error — disable button gracefully */
+        itemsLoaded = true;
+        callback();
+      });
+  }
+
+  /* ── Recalculate total across ALL rows → update main_exp ────────── */
+  function recalcTotal() {
+    var total = 0;
+    document.querySelectorAll('.part-row').forEach(function (row) {
+      var unitCost = parseFloat(row.dataset.unitCost || 0);
+      var qtyInput = row.querySelector('input[name="part_qty"]');
+      var qty      = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+      var lineTotal = unitCost * qty;
+
+      /* Update the per-row line-total badge */
+      var lineBadge = row.querySelector('.line-total-badge');
+      if (lineBadge) {
+        lineBadge.textContent = qty > 0 && unitCost > 0
+          ? '₹' + lineTotal.toFixed(2)
+          : '—';
+      }
+
+      total += lineTotal;
+    });
+
+    /* Fill the Maintenance Cost field with the computed total */
+    var mainExpInput = document.getElementById('mainExpInput');
+    if (mainExpInput) {
+      mainExpInput.value = total > 0 ? total.toFixed(2) : '';
+    }
+  }
+
+  /* ── Build one part-row element ─────────────────────────────────── */
+  function buildRow() {
+    var row = document.createElement('div');
+    row.className = 'row g-2 align-items-center mb-2 part-row border rounded p-2';
+    row.dataset.unitCost = '0';   /* will be updated on item select */
+
+    /* --- Item dropdown -------------------------------------------- */
+    var colSel = document.createElement('div');
+    colSel.className = 'col-12 col-md-4';
+    var sel = document.createElement('select');
+    sel.name = 'part_item_id';
+    sel.className = 'form-select form-select-sm';
+    var defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '— Select Item —';
+    sel.appendChild(defaultOpt);
+    inventoryItems.forEach(function (item) {
+      var opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = item.name + ' (' + item.category + ')';
+      sel.appendChild(opt);
+    });
+    colSel.appendChild(sel);
+    row.appendChild(colSel);
+
+    /* --- Stock + unit cost badge (updates on item select) ---------- */
+    var colBadge = document.createElement('div');
+    colBadge.className = 'col-12 col-md-3 text-center';
+    var badge = document.createElement('span');
+    badge.className = 'badge bg-secondary w-100';
+    badge.style.fontSize = '0.72rem';
+    badge.style.whiteSpace = 'normal';
+    badge.textContent = 'Select an item';
+    colBadge.appendChild(badge);
+    row.appendChild(colBadge);
+
+    /* --- Quantity input ------------------------------------------- */
+    var colQty = document.createElement('div');
+    colQty.className = 'col-5 col-md-2';
+    var qty = document.createElement('input');
+    qty.type = 'number';
+    qty.name = 'part_qty';
+    qty.className = 'form-control form-control-sm';
+    qty.placeholder = 'Qty';
+    qty.min = '0.01';
+    qty.step = '0.01';
+    colQty.appendChild(qty);
+    row.appendChild(colQty);
+
+    /* --- Line-total badge (qty × unit_cost) ----------------------- */
+    var colTotal = document.createElement('div');
+    colTotal.className = 'col-5 col-md-2 text-center';
+    var lineBadge = document.createElement('span');
+    lineBadge.className = 'badge bg-primary w-100 line-total-badge';
+    lineBadge.style.fontSize = '0.72rem';
+    lineBadge.textContent = '—';
+    colTotal.appendChild(lineBadge);
+    row.appendChild(colTotal);
+
+    /* --- Remove button -------------------------------------------- */
+    var colRm = document.createElement('div');
+    colRm.className = 'col-2 col-md-1 text-end';
+    var rmBtn = document.createElement('button');
+    rmBtn.type = 'button';
+    rmBtn.className = 'btn btn-sm btn-outline-danger';
+    rmBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    rmBtn.title = 'Remove this row';
+    rmBtn.addEventListener('click', function () {
+      row.remove();
+      recalcTotal();   /* re-sum after removal */
+    });
+    colRm.appendChild(rmBtn);
+    row.appendChild(colRm);
+
+    /* --- Update badge + unit_cost when item changes --------------- */
+    sel.addEventListener('change', function () {
+      var found = null;
+      for (var i = 0; i < inventoryItems.length; i++) {
+        if (inventoryItems[i].id == sel.value) { found = inventoryItems[i]; break; }
+      }
+      if (!found) {
+        badge.textContent = 'Select an item';
+        badge.className = 'badge bg-secondary w-100';
+        row.dataset.unitCost = '0';
+        recalcTotal();
+        return;
+      }
+
+      /* Store unit cost on the row for recalcTotal() to pick up */
+      row.dataset.unitCost = found.unit_cost;
+
+      /* Build badge text: stock + unit cost */
+      var stockPart = found.current_stock + ' ' + found.unit + ' in stock';
+      var costPart  = found.unit_cost > 0 ? ' · ₹' + found.unit_cost.toFixed(2) + '/' + found.unit : '';
+
+      if (found.is_low_stock) {
+        badge.textContent = '⚠ Low: ' + stockPart + costPart;
+        badge.className = 'badge text-bg-warning w-100';
+      } else {
+        badge.textContent = '✓ ' + stockPart + costPart;
+        badge.className = 'badge text-bg-success w-100';
+      }
+
+      recalcTotal();
+    });
+
+    /* --- Recalc whenever qty changes ------------------------------ */
+    qty.addEventListener('input', recalcTotal);
+    qty.addEventListener('change', recalcTotal);
+
+    return row;
+  }
+
+  /* ── "Add Part" button ──────────────────────────────────────────── */
+  document.getElementById('addPartRow').addEventListener('click', function () {
+    fetchInventoryItems(function () {
+      if (inventoryItems.length === 0) return;
+      var container = document.getElementById('partsContainer');
+      container.appendChild(buildRow());
+    });
+  });
+
+})();
+</script>
 {% endblock %}

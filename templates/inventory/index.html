@@ -12,9 +12,10 @@
   </div>
 </div>
 
-<div class="row g-3 mb-4">
-  <div class="col-12 col-lg-8">
-    <form method="GET" class="filter-bar h-100 mb-0">
+{# ── Filter bar — full width, natural height ─────────────────────────────── #}
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="GET" class="filter-bar mb-0">
       <input type="text" name="search" class="form-control" placeholder="Search item or vendor" value="{{ search }}">
       <select name="category" class="form-select">
         <option value="">All Categories</option>
@@ -24,33 +25,54 @@
       </select>
       <select name="low_stock" class="form-select">
         <option value="">All Stock</option>
-        <option value="1" {% if low_stock %}selected{% endif %}>Low Stock</option>
+        <option value="1" {% if low_stock %}selected{% endif %}>Low Stock Only</option>
       </select>
       <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
       <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
     </form>
   </div>
-  <div class="col-12 col-lg-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-clock-history text-primary"></i> Recent Movement</div>
-      <div class="card-body p-0">
-        <div class="list-group list-group-flush">
-          {% for movement in recent_movements %}
-          <div class="list-group-item d-flex justify-content-between gap-2">
-            <div>
-              <div class="fw-600">{{ movement.item.item_name if movement.item else 'Item' }}</div>
-              <small class="text-muted">{{ movement.movement_type }} on {{ movement.movement_date.strftime('%d %b') }}</small>
-            </div>
-            <span class="fw-bold">{{ '{:g}'.format(movement.quantity) }}</span>
-          </div>
-          {% else %}
-          <div class="p-3 text-muted text-center small">No stock movements yet.</div>
-          {% endfor %}
-        </div>
+</div>
+
+{# ── Recent Movement — compact capped panel, right-aligned ───────────────── #}
+{% if recent_movements %}
+<div class="row mb-3">
+  <div class="col-12 col-lg-5 ms-auto">
+    <div class="card">
+      <div class="card-header py-2 d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-clock-history text-primary me-1"></i> Recent Stock Movements</span>
+        <small class="text-muted">Last {{ recent_movements|length }}</small>
+      </div>
+      <div class="card-body p-0" style="max-height: 220px; overflow-y: auto;">
+        <table class="table table-sm table-hover mb-0 small">
+          <tbody>
+            {% for mv in recent_movements %}
+            <tr>
+              <td class="ps-3 fw-600 text-truncate" style="max-width:140px">
+                {{ mv.item.item_name if mv.item else '—' }}
+              </td>
+              <td>
+                <span class="badge
+                  {% if mv.movement_type == 'In' %}text-bg-success
+                  {% elif mv.movement_type == 'Out' %}text-bg-danger
+                  {% else %}text-bg-secondary{% endif %}">
+                  {{ mv.movement_type }}
+                </span>
+              </td>
+              <td class="text-muted">{{ mv.movement_date.strftime('%d %b') }}</td>
+              <td class="text-end pe-3 fw-600">
+                {{ '{:g}'.format(mv.quantity) }}
+                {% if mv.item %}{{ mv.item.unit }}{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 </div>
+{% endif %}
+
 
 <div class="table-card">
   <div class="table-responsive">

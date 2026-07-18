@@ -3,20 +3,55 @@ routes/maintenance_routes.py - Maintenance record CRUD with image uploads.
 """
 from datetime import date, timedelta
 from flask import (Blueprint, render_template, redirect, url_for, flash,
-                   request, Response, current_app)
+                   request, Response, current_app, jsonify)
 from flask_login import login_required, current_user
 from extensions import db
 from models.machine import Machine
 from models.maintenance import Maintenance
+from models.inventory import InventoryItem
 from utils.helpers import log_activity, get_page_items
 from utils.file_handler import save_upload
 from services.accounting_service import sync_maintenance_to_ledger
+from services.maintenance_service import deduct_inventory_for_maintenance
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
 SERVICE_TYPES = ['Routine Service', 'Filter Change', 'Repair', 'Installation Check',
                  'Emergency', 'Warranty Service']
 FEEDBACK_OPTIONS = ['Excellent', 'Good', 'Average', 'Poor']
+# Stock level below which a low-stock warning badge is shown in the UI
+LOW_STOCK_THRESHOLD = 10
+
+
+# ---------------------------------------------------------------------------
+# AJAX: Inventory items list (for the maintenance form parts picker)
+# ---------------------------------------------------------------------------
+
+@maintenance_bp.route('/api/inventory-items')
+@login_required
+def api_inventory_items():
+    """Return all active inventory items as JSON for the maintenance form.
+
+    Response shape:
+      [{id, name, category, unit, current_stock, is_low_stock}, ...]
+
+    is_low_stock is True when current_stock < LOW_STOCK_THRESHOLD (default 10).
+    This drives the orange warning badge shown next to the dropdown in the UI.
+    """
+    items = InventoryItem.query.filter_by(is_active=True).order_by(InventoryItem.item_name).all()
+    return jsonify([
+        {
+            'id': item.item_id,
+            'name': item.item_name,
+            'category': item.category,
+            'unit': item.unit,
+            'unit_cost': float(item.unit_cost or 0),
+            'current_stock': float(item.current_stock or 0),
+            'is_low_stock': float(item.current_stock or 0) < LOW_STOCK_THRESHOLD,
+        }
+        for item in items
+    ])
+
 
 
 @maintenance_bp.route('/')
@@ -143,11 +178,41 @@ def add():
                 machine.last_service_date = service_date
                 machine.next_service_date = next_service
 
-            db.session.flush()
+            db.session.flush()  # assigns record.service_id before ledger + inventory
             sync_maintenance_to_ledger(record, current_user.username)
+
+            # ── Inventory deduction ─────────────────────────────────────────
+            # Collect part_item_id[] / part_qty[] arrays posted from the form.
+            # Rows with empty item_id or zero quantity are silently skipped
+            # inside deduct_inventory_for_maintenance().
+            part_ids  = request.form.getlist('part_item_id')
+            part_qtys = request.form.getlist('part_qty')
+
+            parts_list = []
+            for pid, pqty in zip(part_ids, part_qtys):
+                try:
+                    item_id  = int(pid) if pid and pid.strip() else None
+                    quantity = float(pqty) if pqty and pqty.strip() else 0
+                except (ValueError, TypeError):
+                    item_id, quantity = None, 0
+                if item_id and quantity > 0:
+                    parts_list.append({'item_id': item_id, 'quantity': quantity})
+
+            inv_warnings = deduct_inventory_for_maintenance(
+                service_record=record,
+                parts_list=parts_list,
+                created_by=current_user.username,
+            )
+            # ───────────────────────────────────────────────────────────────
+
             db.session.commit()
             log_activity(current_user.username, 'Add', 'Maintenance', record.service_id,
                          f'Maintenance for machine #{machine_id}', request.remote_addr)
+
+            # Flash any inventory stock warnings collected during deduction
+            for warn in inv_warnings:
+                flash(f'⚠️ Stock warning: {warn}', 'warning')
+
             flash('Maintenance record added!', 'success')
             return redirect(url_for('maintenance.index'))
 
