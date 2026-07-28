@@ -112,7 +112,20 @@
         {% if customer.machine_id %}
         <table class="table table-sm table-borderless mb-0">
           <tr><th width="50%">Serial No</th><td class="fw-600">{{ customer.machine_serial_no }}</td></tr>
-          <tr><th>Installed By</th><td>{{ customer.installed_by or '—' }}</td></tr>
+          <tr><th>Installed By</th><td>
+            {% if customer.installer %}
+              <a href="{{ url_for('employees.view', emp_id=customer.installer.emp_id) }}"
+                 class="text-decoration-none fw-600">
+                <i class="bi bi-person-badge-fill text-warning me-1"></i>
+                {{ customer.installer.emp_name }}
+              </a>
+              <small class="text-muted ms-1">({{ customer.installer.emp_type }})</small>
+            {% elif customer.installed_by %}
+              {{ customer.installed_by }}
+            {% else %}
+              —
+            {% endif %}
+          </td></tr>
           <tr><th>Install Date</th><td>{{ customer.installation_date.strftime('%d %b %Y') if customer.installation_date else '—' }}</td></tr>
           <tr><th>Last Service</th><td>{{ customer.last_service_date.strftime('%d %b %Y') if customer.last_service_date else '—' }}</td></tr>
           <tr><th>Next Service</th>
@@ -205,7 +218,17 @@
                 <tr>
                   <td>{{ m.service_date.strftime('%d %b %Y') }}</td>
                   <td>{{ m.service_type }}</td>
-                  <td>{{ m.technician_name or '—' }}</td>
+                  <td>
+                    {% if m.technician %}
+                      <a href="{{ url_for('employees.view', emp_id=m.technician.emp_id) }}"
+                         class="text-decoration-none">
+                        <i class="bi bi-person-badge-fill text-warning"></i>
+                        {{ m.technician.emp_name }}
+                      </a>
+                    {% else %}
+                      {{ m.technician_name or '—' }}
+                    {% endif %}
+                  </td>
                   <td>{{ m.water_tds or '—' }}</td>
                   <td>{{ m.next_service_date.strftime('%d %b %Y') if m.next_service_date else '—' }}</td>
                 </tr>

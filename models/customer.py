@@ -45,7 +45,8 @@ class Customer(db.Model):
     # Machine assignment
     machine_id = db.Column(db.Integer, db.ForeignKey('machines.machine_id'), nullable=True)
     machine_serial_no = db.Column(db.String(100))
-    installed_by = db.Column(db.String(100))
+    installed_by = db.Column(db.String(100))  # Legacy text field kept for backward compat
+    installed_by_emp_id = db.Column(db.Integer, db.ForeignKey('employees.emp_id'), nullable=True)
     installation_date = db.Column(db.Date, nullable=True)
     installation_cost = db.Column(db.Float, default=0.0)
 
@@ -72,6 +73,9 @@ class Customer(db.Model):
     # machine assigned relationship
     machine = db.relationship('Machine', backref='customers',
                                foreign_keys=[machine_id])
+    # installer employee relationship
+    installer = db.relationship('Employee', foreign_keys=[installed_by_emp_id],
+                                backref='installations')
 
     def calculate_plan_end_date(self):
         """Auto-calculate plan_end_date from start date + duration."""

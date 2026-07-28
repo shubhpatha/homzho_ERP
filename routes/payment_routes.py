@@ -223,14 +223,21 @@ def add():
             if customer.next_billing_date and payment_date > customer.next_billing_date:
                 days_overdue = (payment_date - customer.next_billing_date).days
 
+            # Determine baseline for calculations (payment_date or previous next_billing_date)
+            # Default fallback for backwards compatibility is to use payment_date
+            renew_from_expiry = request.form.get('renew_from_expiry') == '1'
+            base_date = payment_date
+            if renew_from_expiry and customer.next_billing_date:
+                base_date = customer.next_billing_date
+
             # Calculate next due date from plan master when available.
             plan = Plan.query.filter_by(plan_name=customer.plan_name, is_active=True).first()
             if plan:
-                next_due = payment_date + timedelta(days=plan.validity_in_days)
+                next_due = base_date + timedelta(days=plan.validity_in_days)
             else:
                 freq_months = {'Monthly': 1, 'Quarterly': 3, 'Half Yearly': 6, 'Annual': 12, 'Yearly': 12}
                 months = freq_months.get(customer.payment_freq, 1)
-                next_due = payment_date + relativedelta(months=months)
+                next_due = base_date + relativedelta(months=months)
 
             payment = Payment(
                 customer_id=customer_id,
@@ -251,15 +258,18 @@ def add():
             payment.invoice_items = invoice_items
             db.session.add(payment)
 
-            # Update customer next_billing_date
+            # Update customer next_billing_date, and also update rental plan start and end dates
             customer.next_billing_date = next_due
+            customer.plan_start_date = base_date
+            customer.plan_end_date = next_due
+            
             db.session.flush()
             sync_payment_to_ledger(payment, current_user.username)
 
             db.session.commit()
             log_activity(current_user.username, 'Add', 'Payment', payment.payment_id,
-                         f'Invoice {invoice_no} for customer #{customer_id}', request.remote_addr)
-            flash(f'Payment recorded! Invoice: {invoice_no}', 'success')
+                         f'Invoice {invoice_no} for customer #{customer_id} (Renewed from expiry: {renew_from_expiry})', request.remote_addr)
+            flash(f'Payment recorded and Plan Renewed! Invoice: {invoice_no}', 'success')
             return redirect(url_for('payments.view', payment_id=payment.payment_id))
 
         except Exception as exc:

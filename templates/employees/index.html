@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Employees – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Employees & Technicians</h1>
+    <p class="page-subtitle">Manage your field and office workforce</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('employees.bulk_attendance') }}" class="btn btn-outline-warning">
+      <i class="bi bi-calendar-check-fill"></i> Mark Attendance
+    </a>
+    {% if current_user.has_permission('employees') %}
+    <a href="{{ url_for('employees.add') }}" class="btn btn-primary">
+      <i class="bi bi-person-plus-fill"></i> Add Employee
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+        <i class="bi bi-people-fill"></i>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ total }}</div>
+        <div class="stat-label">Total Employees</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)">
+        <i class="bi bi-person-check-fill"></i>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ active }}</div>
+        <div class="stat-label">Active</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+        <i class="bi bi-tools"></i>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ technicians }}</div>
+        <div class="stat-label">Field Technicians</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626)">
+        <i class="bi bi-person-dash-fill"></i>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ on_leave }}</div>
+        <div class="stat-label">On Leave</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<form method="GET" class="filter-bar mb-3 flex-wrap gap-2">
+  <input type="text" name="search" class="form-control" placeholder="&#128269; Name, code, phone…"
+         value="{{ search }}" style="min-width:180px;">
+  <select name="emp_type" class="form-select" style="min-width:170px;">
+    <option value="">All Types</option>
+    {% for t in emp_types %}
+    <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
+    {% endfor %}
+  </select>
+  <select name="status" class="form-select" style="min-width:140px;">
+    <option value="">All Statuses</option>
+    {% for s in statuses %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+  <a href="{{ url_for('employees.index') }}" class="btn btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+</form>
+
+<!-- Employee Table -->
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Code</th>
+          <th>Type</th>
+          <th>Contact</th>
+          <th>Salary</th>
+          <th>Joining</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for emp in employees %}
+        <tr onclick="window.location='{{ url_for('employees.view', emp_id=emp.emp_id) }}'" style="cursor:pointer;">
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="user-avatar" style="
+                width:36px;height:36px;min-width:36px;border-radius:50%;
+                background:linear-gradient(135deg,
+                  {% if emp.emp_type == 'Field Technician' %}#f59e0b,#d97706
+                  {% elif emp.emp_type == 'Manager' %}#6366f1,#8b5cf6
+                  {% else %}#10b981,#059669{% endif %});
+                display:flex;align-items:center;justify-content:center;
+                color:#fff;font-weight:700;font-size:14px;">
+                {{ emp.emp_name[0] | upper }}
+              </div>
+              <div>
+                <div class="fw-600">{{ emp.emp_name }}</div>
+                {% if emp.department %}<small class="text-muted">{{ emp.department }}</small>{% endif %}
+              </div>
+            </div>
+          </td>
+          <td><code class="text-primary">{{ emp.emp_code or '—' }}</code></td>
+          <td>
+            <span class="badge
+              {% if emp.emp_type == 'Field Technician' %}bg-warning text-dark
+              {% elif emp.emp_type == 'Manager' %}bg-primary
+              {% elif emp.emp_type == 'Driver' %}bg-info text-dark
+              {% elif emp.emp_type == 'Sales Executive' %}bg-success
+              {% else %}bg-secondary{% endif %}">
+              <i class="bi bi-{% if emp.emp_type == 'Field Technician' %}tools{% elif emp.emp_type == 'Manager' %}briefcase{% elif emp.emp_type == 'Driver' %}truck{% elif emp.emp_type == 'Sales Executive' %}graph-up-arrow{% else %}person{% endif %}"></i>
+              {{ emp.emp_type }}
+            </span>
+          </td>
+          <td>
+            <a href="tel:{{ emp.contact_number }}" class="text-decoration-none" onclick="event.stopPropagation()">
+              {{ emp.contact_number }}
+            </a>
+          </td>
+          <td class="fw-600">₹{{ '{:,.0f}'.format(emp.monthly_salary) }}</td>
+          <td class="text-muted">{{ emp.join_date.strftime('%d %b %Y') if emp.join_date else '—' }}</td>
+          <td>
+            <span class="status-badge status-{{ emp.status | lower | replace(' ', '-') }}">
+              {{ emp.status }}
+            </span>
+          </td>
+          <td class="text-nowrap" onclick="event.stopPropagation()">
+            <a href="{{ url_for('employees.view', emp_id=emp.emp_id) }}"
+               class="btn btn-sm btn-icon btn-outline-primary" title="View Profile">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="{{ url_for('employees.edit', emp_id=emp.emp_id) }}"
+               class="btn btn-sm btn-icon btn-outline-secondary ms-1" title="Edit">
+              <i class="bi bi-pencil"></i>
+            </a>
+            {% if emp.contact_number %}
+            <a href="https://wa.me/91{{ emp.contact_number | replace(' ','') | replace('+91','') }}"
+               target="_blank" class="btn btn-sm btn-icon btn-outline-success ms-1" title="WhatsApp">
+              <i class="bi bi-whatsapp"></i>
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-5">
+          <i class="bi bi-people display-6 d-block mb-2 opacity-25"></i>
+          No employees found. <a href="{{ url_for('employees.add') }}">Add the first one</a>.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center p-3 border-top">
+    <small class="text-muted">
+      Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}–{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}
+    </small>
+    <nav><ul class="pagination pagination-sm mb-0">
+      {% if pagination.has_prev %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('employees.index', page=pagination.prev_num, search=search, emp_type=type_filter, status=status_filter) }}">‹</a></li>
+      {% endif %}
+      {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('employees.index', page=p, search=search, emp_type=type_filter, status=status_filter) }}">{{ p }}</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+      <li class="page-item"><a class="page-link" href="{{ url_for('employees.index', page=pagination.next_num, search=search, emp_type=type_filter, status=status_filter) }}">›</a></li>
+      {% endif %}
+    </ul></nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

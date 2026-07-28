@@ -17,7 +17,8 @@ class Maintenance(db.Model):
     service_type = db.Column(db.String(80), nullable=False)  # Routine, Filter Change, Repair, etc.
     parts_replaced = db.Column(db.Text)
     filter_changed = db.Column(db.Boolean, default=False)
-    technician_name = db.Column(db.String(100))
+    technician_name = db.Column(db.String(100))  # Legacy text field kept for backward compat
+    technician_emp_id = db.Column(db.Integer, db.ForeignKey('employees.emp_id'), nullable=True)
     water_tds = db.Column(db.Float, nullable=True)
     main_exp = db.Column(db.Float, default=0.0)    # Maintenance expense
     travel_exp = db.Column(db.Float, default=0.0)  # Travel expense
@@ -29,6 +30,9 @@ class Maintenance(db.Model):
     # Customer relationship (optional, for display)
     customer = db.relationship('Customer', backref='maintenance_records',
                                 foreign_keys=[customer_id])
+    # Technician employee relationship
+    technician = db.relationship('Employee', foreign_keys=[technician_emp_id],
+                                  backref='service_records')
 
     def set_next_service_date(self):
         """Auto-calculate next service date = service_date + 90 days."""

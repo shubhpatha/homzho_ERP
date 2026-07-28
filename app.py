@@ -71,6 +71,7 @@ def create_app(config_name: str = None) -> Flask:
     from routes.report_routes import report_bp
     from routes.settings_routes import settings_bp
     from routes.lead_routes import lead_bp
+    from routes.employee_routes import employee_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -86,6 +87,7 @@ def create_app(config_name: str = None) -> Flask:
     app.register_blueprint(report_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(lead_bp)
+    app.register_blueprint(employee_bp)
 
     # -----------------------------------------------------------------------
     # Global Search endpoint
@@ -183,6 +185,8 @@ def create_app(config_name: str = None) -> Flask:
         _ensure_payment_invoice_columns()
         _ensure_default_plans()
         _ensure_leads_and_referrals()
+        _ensure_employees_tables()
+        _ensure_employee_links()
         _ensure_accounting_and_inventory()
 
     return app
@@ -284,6 +288,43 @@ def _ensure_accounting_and_inventory():
     db.create_all()
     backfill_account_ledger()
     db.session.commit()
+
+
+def _ensure_employees_tables():
+    """Create employees, attendance_logs, and salary_records tables if not present."""
+    from models.employee import Employee, AttendanceLog, SalaryRecord  # noqa: F401
+    db.create_all()
+
+
+def _ensure_employee_links():
+    """
+    Safely add installed_by_emp_id to customers and technician_emp_id to maintenance
+    if they do not already exist (safe for existing SQLite databases).
+    """
+    from sqlalchemy import inspect, text
+    inspector = inspect(db.engine)
+    changed = False
+
+    # customers table
+    if 'customers' in inspector.get_table_names():
+        cust_cols = {c['name'] for c in inspector.get_columns('customers')}
+        if 'installed_by_emp_id' not in cust_cols:
+            db.session.execute(text(
+                'ALTER TABLE customers ADD COLUMN installed_by_emp_id INTEGER REFERENCES employees(emp_id)'
+            ))
+            changed = True
+
+    # maintenance table
+    if 'maintenance' in inspector.get_table_names():
+        maint_cols = {c['name'] for c in inspector.get_columns('maintenance')}
+        if 'technician_emp_id' not in maint_cols:
+            db.session.execute(text(
+                'ALTER TABLE maintenance ADD COLUMN technician_emp_id INTEGER REFERENCES employees(emp_id)'
+            ))
+            changed = True
+
+    if changed:
+        db.session.commit()
 
 def _setup_logging(app: Flask):
     """Configure rotating file logger."""

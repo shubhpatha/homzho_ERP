@@ -1,0 +1,561 @@
+{% extends "base.html" %}
+{% block title %}{{ emp.emp_name }} – Homzho ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ---- Attendance Calendar ---- */
+.att-calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+.att-day-header { text-align:center; font-size:11px; font-weight:600; color:var(--text-muted); padding:4px 0; }
+.att-day {
+  aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; font-size:11px; font-weight:600; position:relative; cursor:default;
+  border:1px solid transparent; transition:transform .15s;
+}
+.att-day:not(.empty):hover { transform:scale(1.05); }
+.att-day.empty { background:transparent; border-color:transparent; }
+.att-day.att-present  { background:#d1fae5; color:#065f46; border-color:#a7f3d0; }
+.att-day.att-absent   { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+.att-day.att-half-day { background:#fef3c7; color:#92400e; border-color:#fde68a; }
+.att-day.att-leave    { background:#e0e7ff; color:#3730a3; border-color:#c7d2fe; }
+.att-day.att-week-off { background:#f3f4f6; color:#6b7280; border-color:#e5e7eb; }
+.att-day.att-holiday  { background:#fdf2f8; color:#9d174d; border-color:#fbcfe8; }
+.att-day.att-today    { outline:2px solid var(--primary); outline-offset:1px; }
+.att-day.att-future   { opacity:.35; }
+.att-day.att-unmarked { background:var(--bg-body); border-color:var(--border-color); color:var(--text-muted); }
+.att-day-num { font-size:13px; font-weight:700; line-height:1; }
+.att-day-label { font-size:9px; font-weight:500; margin-top:2px; text-transform:uppercase; letter-spacing:.3px; }
+
+/* ---- Salary pill ---- */
+.salary-pill {
+  display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:20px;
+  font-size:12px; font-weight:600;
+}
+.salary-pill.credit { background:#d1fae5; color:#065f46; }
+.salary-pill.debit  { background:#fee2e2; color:#991b1b; }
+
+/* ---- Mark Attendance Modal trigger day ---- */
+.att-day.clickable { cursor:pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('employees.index') }}">Employees</a></li>
+        <li class="breadcrumb-item active">{{ emp.emp_name }}</li>
+      </ol>
+    </nav>
+    <h1 class="page-title">{{ emp.emp_name }}</h1>
+    <span class="status-badge status-{{ emp.status | lower | replace(' ','-') }}">{{ emp.status }}</span>
+    {% if emp.emp_code %}<code class="ms-2 text-primary" style="font-size:13px;">{{ emp.emp_code }}</code>{% endif %}
+  </div>
+  <div class="page-actions">
+    {% if current_user.has_permission('employees') %}
+    <a href="{{ url_for('employees.edit', emp_id=emp.emp_id) }}" class="btn btn-outline-primary">
+      <i class="bi bi-pencil"></i> Edit
+    </a>
+    <form method="POST" action="{{ url_for('employees.toggle', emp_id=emp.emp_id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button class="btn btn-outline-{{ 'danger' if emp.status == 'Active' else 'success' }}"
+              onclick="return confirm('Are you sure?')">
+        <i class="bi bi-toggle-{{ 'on' if emp.status == 'Active' else 'off' }}"></i>
+        {{ 'Deactivate' if emp.status == 'Active' else 'Activate' }}
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <!-- Left column: Profile card -->
+  <div class="col-12 col-lg-4">
+
+    <!-- Profile Card -->
+    <div class="card mb-3">
+      <div class="card-body text-center pt-4">
+        <div class="user-avatar mx-auto mb-3" style="
+          width:72px;height:72px;border-radius:50%;font-size:28px;font-weight:700;
+          display:flex;align-items:center;justify-content:center;color:#fff;
+          background:linear-gradient(135deg,
+            {% if emp.emp_type == 'Field Technician' %}#f59e0b,#d97706
+            {% elif emp.emp_type == 'Manager' %}#6366f1,#8b5cf6
+            {% else %}#10b981,#059669{% endif %});">
+          {{ emp.emp_name[0] | upper }}
+        </div>
+        <h5 class="fw-700 mb-1">{{ emp.emp_name }}</h5>
+        <span class="badge
+          {% if emp.emp_type == 'Field Technician' %}bg-warning text-dark
+          {% elif emp.emp_type == 'Manager' %}bg-primary
+          {% else %}bg-secondary{% endif %} mb-2">
+          {{ emp.emp_type }}
+        </span>
+        {% if emp.department %}
+        <p class="text-muted mb-0" style="font-size:13px;">{{ emp.department }}</p>
+        {% endif %}
+      </div>
+      <div class="card-body border-top pt-3">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th width="40%" class="text-muted">Phone</th>
+              <td><a href="tel:{{ emp.contact_number }}">{{ emp.contact_number }}</a></td></tr>
+          {% if emp.email %}
+          <tr><th class="text-muted">Email</th><td>{{ emp.email }}</td></tr>
+          {% endif %}
+          <tr><th class="text-muted">Joined</th><td>{{ emp.join_date.strftime('%d %b %Y') if emp.join_date else '—' }}</td></tr>
+          {% if emp.exit_date %}
+          <tr><th class="text-muted">Exit Date</th><td class="text-danger">{{ emp.exit_date.strftime('%d %b %Y') }}</td></tr>
+          {% endif %}
+          {% if emp.address or emp.city %}
+          <tr><th class="text-muted">Address</th>
+              <td>{{ emp.address or '' }}{% if emp.city %}, {{ emp.city }}{% endif %}{% if emp.pin %} – {{ emp.pin }}{% endif %}</td></tr>
+          {% endif %}
+        </table>
+        {% if emp.contact_number %}
+        <a href="https://wa.me/91{{ emp.contact_number | replace(' ','') | replace('+91','') }}"
+           target="_blank" class="btn btn-success btn-sm w-100 mt-3">
+          <i class="bi bi-whatsapp"></i> WhatsApp
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Emergency Contact -->
+    {% if emp.emergency_contact %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-telephone-fill text-danger"></i> Emergency Contact</div>
+      <div class="card-body">
+        <div class="fw-600">{{ emp.emergency_contact_name or 'Contact' }}</div>
+        <a href="tel:{{ emp.emergency_contact }}">{{ emp.emergency_contact }}</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Salary Summary Card -->
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-currency-rupee text-success"></i> Salary Details</div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th class="text-muted">Monthly Salary</th>
+              <td class="fw-700 text-success">₹{{ '{:,.0f}'.format(emp.monthly_salary) }}</td></tr>
+          <tr><th class="text-muted">Payment Mode</th><td>{{ emp.salary_payment_mode }}</td></tr>
+          {% if emp.upi_id %}
+          <tr><th class="text-muted">UPI ID</th><td><code>{{ emp.upi_id }}</code></td></tr>
+          {% endif %}
+          {% if emp.bank_account_no %}
+          <tr><th class="text-muted">Bank A/C</th><td><code>{{ emp.bank_account_no }}</code></td></tr>
+          <tr><th class="text-muted">Bank</th><td>{{ emp.bank_name or '—' }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+
+    <!-- ID Documents -->
+    {% if emp.aadhar_no or emp.pan_no %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-shield-check text-primary"></i> Documents</div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          {% if emp.aadhar_no %}
+          <tr><th class="text-muted">Aadhar</th><td><code>{{ emp.aadhar_no }}</code></td></tr>
+          {% endif %}
+          {% if emp.pan_no %}
+          <tr><th class="text-muted">PAN</th><td><code>{{ emp.pan_no }}</code></td></tr>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /col-lg-4 -->
+
+  <!-- Right column: Attendance + Salary -->
+  <div class="col-12 col-lg-8">
+
+    <!-- Month Navigator -->
+    {% set prev_month = month - 1 if month > 1 else 12 %}
+    {% set prev_year  = year if month > 1 else year - 1 %}
+    {% set next_month = month + 1 if month < 12 else 1 %}
+    {% set next_year  = year if month < 12 else year + 1 %}
+    {% set month_names = ['','January','February','March','April','May','June','July','August','September','October','November','December'] %}
+
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <i class="bi bi-calendar3 text-primary"></i>
+          <strong class="ms-1">Attendance — {{ month_names[month] }} {{ year }}</strong>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <a href="{{ url_for('employees.view', emp_id=emp.emp_id, month=prev_month, year=prev_year) }}"
+             class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+          {% if month != today.month or year != today.year %}
+          <a href="{{ url_for('employees.view', emp_id=emp.emp_id) }}" class="btn btn-sm btn-outline-primary">Today</a>
+          {% endif %}
+          <a href="{{ url_for('employees.view', emp_id=emp.emp_id, month=next_month, year=next_year) }}"
+             class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#markAttModal">
+            <i class="bi bi-pencil-square"></i> Mark
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <!-- Attendance Summary Pills -->
+        <div class="d-flex gap-2 flex-wrap mb-3">
+          <span class="badge bg-success">&#9646; Present: {{ att_summary['Present'] }}</span>
+          <span class="badge bg-danger">&#9646; Absent: {{ att_summary['Absent'] }}</span>
+          <span class="badge bg-warning text-dark">&#9646; Half Day: {{ att_summary['Half Day'] }}</span>
+          <span class="badge bg-primary">&#9646; Leave: {{ att_summary['Leave'] }}</span>
+          <span class="badge bg-secondary">&#9646; Week Off: {{ att_summary['Week Off'] }}</span>
+          <span class="badge" style="background:#fbcfe8;color:#9d174d;">&#9646; Holiday: {{ att_summary['Holiday'] }}</span>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div class="att-calendar">
+          <!-- Day headers (Sun Mon Tue Wed Thu Fri Sat) -->
+          {% for d in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+          <div class="att-day-header">{{ d }}</div>
+          {% endfor %}
+
+          <!-- Empty cells before day 1 -->
+          {% for _ in range(grid_offset) %}
+          <div class="att-day empty"></div>
+          {% endfor %}
+
+          <!-- Actual days -->
+          {% for day_num in range(1, days_in_month + 1) %}
+            {% set this_date = (year ~ '-' ~ '%02d'|format(month) ~ '-' ~ '%02d'|format(day_num)) | string %}
+            {% set this_date_obj = today.__class__(year, month, day_num) %}
+            {% set log = att_map.get(this_date_obj) %}
+            {% set is_today = (this_date_obj == today) %}
+            {% set is_future = (this_date_obj > today) %}
+
+            {% if log %}
+              {% set status_class = 'att-' ~ log.status | lower | replace(' ', '-') %}
+            {% elif is_future %}
+              {% set status_class = 'att-future att-unmarked' %}
+            {% else %}
+              {% set status_class = 'att-unmarked' %}
+            {% endif %}
+
+            <div class="att-day {{ status_class }} {% if is_today %}att-today{% endif %} clickable"
+                 data-date="{{ this_date }}"
+                 title="{{ log.status if log else 'Unmarked' }}{% if log and log.status == 'Leave' and log.leave_type %} ({{ log.leave_type }}){% endif %}{% if log and log.notes %} – {{ log.notes }}{% endif %}"
+                 data-bs-toggle="tooltip">
+              <span class="att-day-num">{{ day_num }}</span>
+              {% if log %}
+              <span class="att-day-label">{{ log.status[:4] }}</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- Calendar Legend -->
+        <div class="d-flex gap-3 flex-wrap mt-3" style="font-size:11px;">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d1fae5;"></span> Present</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fee2e2;"></span> Absent</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fef3c7;"></span> Half Day</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0e7ff;"></span> Leave</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f3f4f6;"></span> Week Off</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fbcfe8;"></span> Holiday</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Salary Records for selected month -->
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <i class="bi bi-currency-rupee text-success"></i>
+          <strong class="ms-1">Salary — {{ month_names[month] }} {{ year }}</strong>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+          <span class="fw-700 {% if net_salary >= 0 %}text-success{% else %}text-danger{% endif %}">
+            Net: ₹{{ '{:,.0f}'.format(net_salary | abs) }}
+            {% if net_salary < 0 %}<small class="text-danger">(debit)</small>{% endif %}
+          </span>
+          <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addSalaryModal">
+            <i class="bi bi-plus-circle"></i> Add Entry
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Date</th><th>Component</th><th>Amount</th><th>Mode</th><th>Ref.</th><th>By</th>
+                {% if current_user.is_admin() %}<th></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in salary_records %}
+              <tr>
+                <td>{{ r.record_date.strftime('%d %b') }}</td>
+                <td>
+                  <span class="salary-pill {% if r.component in ('Basic Salary','Bonus','Incentive','Reimbursement') %}credit{% else %}debit{% endif %}">
+                    <i class="bi bi-{% if r.component == 'Basic Salary' %}cash-stack{% elif r.component == 'Advance' %}arrow-up-circle{% elif r.component == 'Deduction' %}dash-circle{% elif r.component == 'Bonus' %}gift{% elif r.component == 'Incentive' %}graph-up-arrow{% else %}arrow-left-right{% endif %}"></i>
+                    {{ r.component }}
+                  </span>
+                </td>
+                <td class="fw-600 {% if r.component in ('Basic Salary','Bonus','Incentive','Reimbursement') %}text-success{% else %}text-danger{% endif %}">
+                  {% if r.component in ('Deduction','Advance') %}–{% endif %}₹{{ '{:,.0f}'.format(r.amount) }}
+                </td>
+                <td>{{ r.payment_mode }}</td>
+                <td><small class="text-muted">{{ r.reference_no or '—' }}</small></td>
+                <td><small class="text-muted">{{ r.paid_by or '—' }}</small></td>
+                {% if current_user.is_admin() %}
+                <td>
+                  <form method="POST" action="{{ url_for('employees.delete_salary', record_id=r.record_id) }}"
+                        onsubmit="return confirm('Delete this record?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button class="btn btn-sm btn-icon btn-outline-danger"><i class="bi bi-trash"></i></button>
+                  </form>
+                </td>
+                {% endif %}
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="text-center text-muted py-4">No salary entries for this month.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Service Records -->
+    {% if maintenance_records %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-tools text-warning"></i> Recent Service Records</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Date</th><th>Machine</th><th>Type</th><th>Feedback</th></tr></thead>
+            <tbody>
+              {% for m in maintenance_records %}
+              <tr>
+                <td>{{ m.service_date.strftime('%d %b %Y') }}</td>
+                <td>
+                  <a href="{{ url_for('machines.view', machine_id=m.machine_id) }}" class="text-decoration-none">
+                    {{ m.machine.machine_serial_no if m.machine else '—' }}
+                  </a>
+                </td>
+                <td>{{ m.service_type }}</td>
+                <td>
+                  {% if m.customer_feedback %}
+                  <span class="badge bg-{% if m.customer_feedback == 'Excellent' %}success{% elif m.customer_feedback == 'Good' %}primary{% elif m.customer_feedback == 'Average' %}warning text-dark{% else %}danger{% endif %}">
+                    {{ m.customer_feedback }}
+                  </span>
+                  {% else %}—{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Installations done by this employee -->
+    {% if installation_records %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-house-check-fill text-primary"></i> Installations Completed</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Customer</th><th>Machine</th><th>Date</th><th>Cost</th><th>Location</th></tr></thead>
+            <tbody>
+              {% for cust in installation_records %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('customers.view', cust_id=cust.cust_id) }}" class="text-decoration-none fw-600">
+                    {{ cust.cust_name }}
+                  </a>
+                  {% if cust.contact_number %}
+                  <br><small class="text-muted">{{ cust.contact_number }}</small>
+                  {% endif %}
+                </td>
+                <td><small class="text-muted">{{ cust.machine_serial_no or '—' }}</small></td>
+                <td>{{ cust.installation_date.strftime('%d %b %Y') if cust.installation_date else '—' }}</td>
+                <td>{% if cust.installation_cost %}<span class="text-success fw-600">₹{{ '{:,.0f}'.format(cust.installation_cost) }}</span>{% else %}—{% endif %}</td>
+                <td>
+                  <div style="line-height:1.3;">
+                    {% if cust.area %}<div class="fw-500" style="font-size:13px;">{{ cust.area }}</div>{% endif %}
+                    {% if cust.city %}<div class="text-muted" style="font-size:12px;"><i class="bi bi-geo-alt-fill" style="font-size:10px;"></i> {{ cust.city }}{% if cust.pin %} – {{ cust.pin }}{% endif %}</div>{% endif %}
+                    {% if not cust.area and not cust.city %}<span class="text-muted">—</span>{% endif %}
+                    {% if cust.address and not cust.area %}
+                    <div class="text-muted" style="font-size:11px;">{{ cust.address | truncate(40) }}</div>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if emp.notes %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-journal-text text-primary"></i> Notes</div>
+      <div class="card-body">{{ emp.notes }}</div>
+    </div>
+    {% endif %}
+
+  </div><!-- /col-lg-8 -->
+</div>
+
+<!-- ===== Mark Attendance Modal ===== -->
+<div class="modal fade" id="markAttModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('employees.mark_attendance', emp_id=emp.emp_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-calendar-check-fill text-primary me-2"></i>Mark Attendance</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Date <span class="text-danger">*</span></label>
+              <input type="date" name="att_date" class="form-control" id="attModalDate"
+                     value="{{ today.isoformat() }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status <span class="text-danger">*</span></label>
+              <select name="att_status" class="form-select" id="attStatusSelect" required>
+                {% for s in att_statuses %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12" id="leaveTypeRow" style="display:none;">
+              <label class="form-label">Leave Type</label>
+              <select name="leave_type" class="form-select">
+                <option value="">— Select Leave Type —</option>
+                <option>Casual Leave</option>
+                <option>Sick Leave</option>
+                <option>Earned Leave</option>
+                <option>Unpaid Leave</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Check In</label>
+              <input type="time" name="check_in" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Check Out</label>
+              <input type="time" name="check_out" class="form-control" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <input type="text" name="notes" class="form-control" placeholder="Optional reason or note" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Save Attendance</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Add Salary Modal ===== -->
+<div class="modal fade" id="addSalaryModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('employees.add_salary', emp_id=emp.emp_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="redirect_month" value="{{ month }}" />
+        <input type="hidden" name="redirect_year" value="{{ year }}" />
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-currency-rupee text-success me-2"></i>Add Salary Entry</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Date <span class="text-danger">*</span></label>
+              <input type="date" name="record_date" class="form-control" value="{{ today.isoformat() }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Component <span class="text-danger">*</span></label>
+              <select name="component" class="form-select" required>
+                {% for c in salary_components %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Amount (₹) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">₹</span>
+                <input type="number" name="amount" class="form-control" placeholder="0.00"
+                       step="0.01" min="1" required />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Mode</label>
+              <select name="payment_mode" class="form-select">
+                {% for m in payment_modes %}
+                <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Reference No. (UTR / Cheque)</label>
+              <input type="text" name="reference_no" class="form-control" placeholder="Optional" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea name="remarks" class="form-control" rows="2" placeholder="e.g. July salary, advance for personal work…"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-save me-1"></i> Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Show/hide Leave Type field based on status
+const attStatus = document.getElementById('attStatusSelect');
+const leaveTypeRow = document.getElementById('leaveTypeRow');
+if (attStatus && leaveTypeRow) {
+  attStatus.addEventListener('change', () => {
+    leaveTypeRow.style.display = attStatus.value === 'Leave' ? '' : 'none';
+  });
+}
+
+// Click on calendar day → open Mark Attendance modal with that date pre-filled
+document.querySelectorAll('.att-day.clickable').forEach(el => {
+  el.addEventListener('click', () => {
+    const d = el.dataset.date;
+    if (d) {
+      document.getElementById('attModalDate').value = d;
+      const modal = new bootstrap.Modal(document.getElementById('markAttModal'));
+      modal.show();
+    }
+  });
+});
+
+// Bootstrap tooltips
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+  new bootstrap.Tooltip(el, { trigger: 'hover' });
+});
+</script>
+{% endblock %}

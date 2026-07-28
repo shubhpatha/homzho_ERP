@@ -13,6 +13,7 @@ from models.plan import Plan
 from models.payment import Payment
 from models.maintenance import Maintenance
 from models.upload import Upload
+from models.employee import Employee
 from services.export_service import (
     export_customers_csv, get_customer_import_template, import_customers_csv
 )
@@ -100,6 +101,10 @@ def add():
     machines = Machine.query.filter_by(machine_status='Available').all()
     plans = Plan.query.filter_by(is_active=True).order_by(Plan.validity_in_days.asc()).all()
     all_customers = Customer.query.filter_by(customer_status='Active').order_by(Customer.cust_name).all()
+    technicians = Employee.query.filter(
+        Employee.status == 'Active',
+        Employee.emp_type.in_(['Field Technician', 'Manager', 'Other'])
+    ).order_by(Employee.emp_name).all()
 
     # Pre-populate form from URL query params (e.g., when converting a Lead)
     form_data = {k: v for k, v in request.args.items()} if request.method == 'GET' else {}
@@ -137,6 +142,7 @@ def add():
             return render_template(
                 'customers/add.html',
                 machines=machines, plans=plans, all_customers=all_customers,
+                technicians=technicians,
                 form_data=form_data, errors=errors,
                 active_page='customers',
             )
@@ -169,6 +175,14 @@ def add():
                 next_billing_date=plan_end,
                 referred_by_id=int(request.form['referred_by_id']) if request.form.get('referred_by_id') else None
             )
+
+            # Link installer to employee if selected from dropdown
+            installer_emp_id_raw = request.form.get('installed_by_emp_id', '').strip()
+            if installer_emp_id_raw and installer_emp_id_raw.isdigit():
+                emp = db.session.get(Employee, int(installer_emp_id_raw))
+                if emp:
+                    customer.installed_by_emp_id = emp.emp_id
+                    customer.installed_by = emp.emp_name  # keep text field in sync
 
             machine_id = request.form.get('machine_id')
             machine = None
@@ -258,7 +272,7 @@ def add():
             flash(f'Error adding customer: {exc}', 'danger')
 
     return render_template('customers/add.html', machines=machines, plans=plans,
-                           all_customers=all_customers,
+                           all_customers=all_customers, technicians=technicians,
                            form_data=form_data, errors=errors, active_page='customers')
 
 
@@ -323,6 +337,10 @@ def edit(cust_id):
     selected_plan = Plan.query.filter_by(plan_name=customer.plan_name).first()
     if not selected_plan:
         selected_plan = Plan.query.filter_by(cost=customer.monthly_rent, is_active=True).first()
+    technicians = Employee.query.filter(
+        Employee.status == 'Active',
+        Employee.emp_type.in_(['Field Technician', 'Manager', 'Other'])
+    ).order_by(Employee.emp_name).all()
 
     if request.method == 'POST':
         try:
@@ -356,6 +374,16 @@ def edit(cust_id):
             )
             customer.installed_by = request.form.get('installed_by', '').strip()
             customer.installation_cost = float(request.form.get('installation_cost', 0) or 0)
+
+            # Link installer to employee if selected from dropdown
+            installer_emp_id_raw = request.form.get('installed_by_emp_id', '').strip()
+            if installer_emp_id_raw and installer_emp_id_raw.isdigit():
+                emp = db.session.get(Employee, int(installer_emp_id_raw))
+                if emp:
+                    customer.installed_by_emp_id = emp.emp_id
+                    customer.installed_by = emp.emp_name
+            elif not installer_emp_id_raw:
+                customer.installed_by_emp_id = None
 
             if plan_changed or start_date_changed:
                 customer.next_billing_date = customer.plan_end_date
@@ -455,7 +483,7 @@ def edit(cust_id):
             flash(f'Error updating customer: {exc}', 'danger')
 
     return render_template('customers/edit.html', customer=customer, machines=machines,
-                           plans=plans,
+                           plans=plans, technicians=technicians,
                            selected_plan_id=selected_plan.plan_id if selected_plan else None,
                            active_page='customers')
 

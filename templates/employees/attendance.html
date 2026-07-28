@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Bulk Attendance – Homzho ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+.att-status-cell select { min-width: 130px; }
+.table-attendance thead th { position: sticky; top: 0; background: var(--bg-card); z-index: 1; }
+.emp-type-badge {
+  display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600;
+}
+.type-tech   { background:#fef3c7; color:#92400e; }
+.type-office { background:#d1fae5; color:#065f46; }
+.type-mgr    { background:#e0e7ff; color:#3730a3; }
+.type-other  { background:#f3f4f6; color:#6b7280; }
+.att-date-nav { display:flex; align-items:center; gap:8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('employees.index') }}">Employees</a></li>
+        <li class="breadcrumb-item active">Bulk Attendance</li>
+      </ol>
+    </nav>
+    <h1 class="page-title">Mark Attendance</h1>
+    <p class="page-subtitle">Mark attendance for all active employees on a selected date.
+      <strong>Week Off is fully flexible</strong> — assign it to any employee on any day.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('employees.index') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<!-- Date Picker Card -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('employees.bulk_attendance') }}" class="d-flex align-items-center gap-3 flex-wrap">
+      <label class="form-label mb-0 fw-600">Select Date:</label>
+      <div class="input-group" style="max-width:220px;">
+        <span class="input-group-text"><i class="bi bi-calendar-event text-primary"></i></span>
+        <input type="date" name="att_date" class="form-control fw-600"
+               value="{{ att_date.isoformat() }}" id="attDatePicker" />
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Load</button>
+      {% if att_date.isoformat() != today.isoformat() %}
+      <a href="{{ url_for('employees.bulk_attendance') }}" class="btn btn-outline-secondary">Today</a>
+      {% endif %}
+      <span class="ms-auto text-muted fw-500">
+        <i class="bi bi-calendar2-week text-primary"></i>
+        {{ att_date.strftime('%A, %d %B %Y') }}
+      </span>
+    </form>
+  </div>
+</div>
+
+<!-- Quick Apply Bar -->
+<div class="card mb-3">
+  <div class="card-body py-2 d-flex align-items-center gap-3 flex-wrap">
+    <span class="fw-600 text-muted" style="font-size:13px;">Quick Apply to All:</span>
+    {% for s in att_statuses %}
+    <button type="button" class="btn btn-sm btn-outline-secondary quick-apply-btn" data-status="{{ s }}">
+      {{ s }}
+    </button>
+    {% endfor %}
+    <small class="text-muted ms-2">Click to set all employees to the selected status.</small>
+  </div>
+</div>
+
+<!-- Attendance Form -->
+<form method="POST" action="{{ url_for('employees.bulk_attendance') }}" id="bulkAttForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <input type="hidden" name="att_date" value="{{ att_date.isoformat() }}" />
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-people-fill text-primary"></i> <strong>{{ employees | length }}</strong> Active Employees</span>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="bi bi-save me-1"></i> Save Attendance
+        </button>
+      </div>
+    </div>
+    <div class="table-responsive" style="max-height:65vh; overflow-y:auto;">
+      <table class="table table-hover table-attendance mb-0">
+        <thead>
+          <tr>
+            <th style="min-width:220px;">Employee</th>
+            <th style="min-width:130px;">Status <span class="text-danger">*</span></th>
+            <th style="min-width:150px;">Leave Type</th>
+            <th style="min-width:120px;">Notes</th>
+            <th style="min-width:80px;">Last Marked</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set prev_type = '' %}
+          {% for emp in employees %}
+            {% if emp.emp_type != prev_type %}
+            <tr class="table-light">
+              <td colspan="5" class="fw-700 text-muted py-1 ps-3" style="font-size:12px; text-transform:uppercase; letter-spacing:.5px;">
+                <i class="bi bi-{% if emp.emp_type == 'Field Technician' %}tools{% elif emp.emp_type == 'Manager' %}briefcase{% elif emp.emp_type == 'Driver' %}truck{% else %}person{% endif %}"></i>
+                {{ emp.emp_type }}
+              </td>
+            </tr>
+            {% set prev_type = emp.emp_type %}
+            {% endif %}
+
+            {% set existing = existing_map.get(emp.emp_id) %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="user-avatar" style="
+                    width:32px;height:32px;min-width:32px;border-radius:50%;font-size:12px;font-weight:700;
+                    display:flex;align-items:center;justify-content:center;color:#fff;
+                    background:linear-gradient(135deg,
+                      {% if emp.emp_type == 'Field Technician' %}#f59e0b,#d97706
+                      {% elif emp.emp_type == 'Manager' %}#6366f1,#8b5cf6
+                      {% else %}#10b981,#059669{% endif %});">
+                    {{ emp.emp_name[0] | upper }}
+                  </div>
+                  <div>
+                    <div class="fw-600" style="font-size:14px;">{{ emp.emp_name }}</div>
+                    <small class="text-muted">{{ emp.emp_code or '' }}</small>
+                  </div>
+                </div>
+              </td>
+              <td class="att-status-cell">
+                <select name="status_{{ emp.emp_id }}" class="form-select form-select-sm status-select"
+                        data-emp="{{ emp.emp_id }}">
+                  {% for s in att_statuses %}
+                  <option value="{{ s }}"
+                    {% if existing and existing.status == s %}selected
+                    {% elif not existing and s == 'Present' %}selected{% endif %}>
+                    {{ s }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select name="leave_type_{{ emp.emp_id }}" class="form-select form-select-sm leave-type-select"
+                        style="{% if not (existing and existing.status == 'Leave') %}display:none;{% endif %}">
+                  <option value="">— Type —</option>
+                  {% for lt in leave_types %}
+                  <option value="{{ lt }}" {% if existing and existing.leave_type == lt %}selected{% endif %}>{{ lt }}</option>
+                  {% endfor %}
+                </select>
+                <span class="text-muted" style="font-size:12px; {% if existing and existing.status == 'Leave' %}display:none;{% endif %}" data-na="{{ emp.emp_id }}">—</span>
+              </td>
+              <td>
+                <input type="text" name="notes_{{ emp.emp_id }}" class="form-control form-control-sm"
+                       placeholder="Optional note"
+                       value="{{ existing.notes if existing and existing.notes else '' }}" />
+              </td>
+              <td>
+                {% if existing %}
+                <span class="badge bg-{% if existing.status == 'Present' %}success{% elif existing.status == 'Absent' %}danger{% elif existing.status == 'Week Off' %}secondary{% elif existing.status == 'Half Day' %}warning text-dark{% else %}primary{% endif %}">
+                  {{ existing.status }}
+                </span>
+                {% else %}
+                <span class="text-muted" style="font-size:12px;">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-5">No active employees found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer d-flex justify-content-end">
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-save me-2"></i>Save Attendance for {{ att_date.strftime('%d %b %Y') }}
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Show/hide Leave Type select based on status
+document.querySelectorAll('.status-select').forEach(sel => {
+  sel.addEventListener('change', function() {
+    const empId = this.dataset.emp;
+    const leaveSelect = document.querySelector(`select[name="leave_type_${empId}"]`);
+    const naSpan = document.querySelector(`span[data-na="${empId}"]`);
+    if (this.value === 'Leave') {
+      if (leaveSelect) leaveSelect.style.display = '';
+      if (naSpan) naSpan.style.display = 'none';
+    } else {
+      if (leaveSelect) leaveSelect.style.display = 'none';
+      if (naSpan) naSpan.style.display = '';
+    }
+  });
+});
+
+// Quick Apply All buttons
+document.querySelectorAll('.quick-apply-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const status = this.dataset.status;
+    document.querySelectorAll('.status-select').forEach(sel => {
+      sel.value = status;
+      sel.dispatchEvent(new Event('change')); // trigger leave type show/hide
+    });
+  });
+});
+</script>
+{% endblock %}

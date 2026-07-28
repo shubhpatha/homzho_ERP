@@ -9,6 +9,7 @@ from extensions import db
 from models.machine import Machine
 from models.maintenance import Maintenance
 from models.inventory import InventoryItem
+from models.employee import Employee
 from utils.helpers import log_activity, get_page_items
 from utils.file_handler import save_upload
 from services.accounting_service import sync_maintenance_to_ledger
@@ -121,6 +122,11 @@ def add():
 
     machines = Machine.query.filter(Machine.machine_status.in_(['Installed', 'Under Maintenance'])).all()
     prefill_machine_id = request.args.get('machine_id', type=int)
+    # Only allow assignment to existing active employees
+    technicians = Employee.query.filter(
+        Employee.status == 'Active',
+        Employee.emp_type.in_(['Field Technician', 'Manager', 'Other'])
+    ).order_by(Employee.emp_name).all()
 
     if request.method == 'POST':
         try:
@@ -130,6 +136,7 @@ def add():
                 return render_template(
                     'maintenance/add.html',
                     machines=machines,
+                    technicians=technicians,
                     service_types=SERVICE_TYPES,
                     feedback_options=FEEDBACK_OPTIONS,
                     service_date_default=request.form.get('service_date') or date.today().isoformat(),
@@ -161,6 +168,14 @@ def add():
                 customer_feedback=request.form.get('customer_feedback', ''),
                 remark=request.form.get('remark', '').strip(),
             )
+
+            # Link technician to employee if selected from dropdown
+            tech_emp_id_raw = request.form.get('technician_emp_id', '').strip()
+            if tech_emp_id_raw and tech_emp_id_raw.isdigit():
+                tech_emp = db.session.get(Employee, int(tech_emp_id_raw))
+                if tech_emp:
+                    record.technician_emp_id = tech_emp.emp_id
+                    record.technician_name = tech_emp.emp_name  # keep text field in sync
 
             # Handle image upload
             image = request.files.get('service_image')
@@ -224,6 +239,7 @@ def add():
     return render_template(
         'maintenance/add.html',
         machines=machines,
+        technicians=technicians,
         service_types=SERVICE_TYPES,
         feedback_options=FEEDBACK_OPTIONS,
         service_date_default=date.today().isoformat(),

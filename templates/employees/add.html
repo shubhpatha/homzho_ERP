@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% set edit_mode = employee is not none %}
+{% block title %}{{ 'Edit' if edit_mode else 'Add' }} Employee – Homzho ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('employees.index') }}">Employees</a></li>
+        {% if edit_mode %}
+        <li class="breadcrumb-item"><a href="{{ url_for('employees.view', emp_id=employee.emp_id) }}">{{ employee.emp_name }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+        {% else %}
+        <li class="breadcrumb-item active">Add Employee</li>
+        {% endif %}
+      </ol>
+    </nav>
+    <h1 class="page-title">{{ 'Edit Employee' if edit_mode else 'Add New Employee' }}</h1>
+    <p class="page-subtitle">{{ 'Update employee record' if edit_mode else 'Register a new employee or field technician' }}</p>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('employees.edit', emp_id=employee.emp_id) if edit_mode else url_for('employees.add') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <div class="row g-3">
+
+    <!-- Left Column: Personal & Employment -->
+    <div class="col-12 col-lg-8">
+
+      <!-- Personal Info -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-person-badge-fill text-primary"></i> Personal Information</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="emp_name" class="form-control" placeholder="e.g. Ravi Kumar"
+                     value="{{ employee.emp_name if edit_mode else '' }}" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Employee Code</label>
+              <input type="text" name="emp_code" class="form-control" placeholder="Auto-generated if blank"
+                     value="{{ employee.emp_code if edit_mode else '' }}" />
+              <div class="form-text">Leave blank to auto-assign (e.g. HZ-T001)</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Employee Type <span class="text-danger">*</span></label>
+              <select name="emp_type" class="form-select" required id="empTypeSelect">
+                {% for t in emp_types %}
+                <option value="{{ t }}" {% if edit_mode and employee.emp_type == t %}selected{% elif not edit_mode and t == 'Field Technician' %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Department</label>
+              <input type="text" name="department" class="form-control" placeholder="e.g. Field Operations"
+                     value="{{ employee.department if edit_mode else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+              <input type="tel" name="contact_number" class="form-control" placeholder="10-digit mobile"
+                     value="{{ employee.contact_number if edit_mode else '' }}" required maxlength="15" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email (optional)</label>
+              <input type="email" name="email" class="form-control" placeholder="email@example.com"
+                     value="{{ employee.email if edit_mode else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Emergency Contact Name</label>
+              <input type="text" name="emergency_contact_name" class="form-control" placeholder="e.g. Wife / Father"
+                     value="{{ employee.emergency_contact_name if edit_mode else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Emergency Contact Number</label>
+              <input type="tel" name="emergency_contact" class="form-control" placeholder="Emergency phone"
+                     value="{{ employee.emergency_contact if edit_mode else '' }}" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-geo-alt-fill text-primary"></i> Address</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Address</label>
+              <textarea name="address" class="form-control" rows="2" placeholder="Street / Locality">{{ employee.address if edit_mode else '' }}</textarea>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">City</label>
+              <input type="text" name="city" class="form-control" placeholder="City"
+                     value="{{ employee.city if edit_mode else '' }}" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">PIN Code</label>
+              <input type="text" name="pin" class="form-control" placeholder="6-digit PIN"
+                     value="{{ employee.pin if edit_mode else '' }}" maxlength="6" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Salary & Payment -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-currency-rupee text-success"></i> Salary & Payment</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Monthly Salary (₹) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">₹</span>
+                <input type="number" name="monthly_salary" class="form-control" placeholder="0.00"
+                       step="0.01" min="0"
+                       value="{{ employee.monthly_salary if edit_mode else '' }}" required />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment Mode</label>
+              <select name="salary_payment_mode" class="form-select">
+                {% for m in payment_modes %}
+                <option value="{{ m }}" {% if edit_mode and employee.salary_payment_mode == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Bank Account No.</label>
+              <input type="text" name="bank_account_no" class="form-control" placeholder="Account number"
+                     value="{{ employee.bank_account_no if edit_mode else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Bank Name</label>
+              <input type="text" name="bank_name" class="form-control" placeholder="e.g. SBI, HDFC"
+                     value="{{ employee.bank_name if edit_mode else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">UPI ID</label>
+              <input type="text" name="upi_id" class="form-control" placeholder="mobile@upi"
+                     value="{{ employee.upi_id if edit_mode else '' }}" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Identity Documents -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-shield-check text-primary"></i> Identity Documents (optional)</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Aadhar Number</label>
+              <input type="text" name="aadhar_no" class="form-control" placeholder="12-digit Aadhar"
+                     value="{{ employee.aadhar_no if edit_mode else '' }}" maxlength="20" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">PAN Number</label>
+              <input type="text" name="pan_no" class="form-control" placeholder="PAN card number"
+                     value="{{ employee.pan_no if edit_mode else '' }}" maxlength="20" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col-lg-8 -->
+
+    <!-- Right Column: Employment Status + Notes -->
+    <div class="col-12 col-lg-4">
+
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-briefcase-fill text-primary"></i> Employment Details</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                {% for s in statuses %}
+                <option value="{{ s }}" {% if edit_mode and employee.status == s %}selected{% elif not edit_mode and s == 'Active' %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Joining Date <span class="text-danger">*</span></label>
+              <input type="date" name="join_date" class="form-control date-picker"
+                     value="{{ employee.join_date.isoformat() if edit_mode and employee.join_date else '' }}" required />
+            </div>
+            {% if edit_mode %}
+            <div class="col-12">
+              <label class="form-label">Exit Date <span class="text-muted">(leave blank if still employed)</span></label>
+              <input type="date" name="exit_date" class="form-control date-picker"
+                     value="{{ employee.exit_date.isoformat() if employee.exit_date else '' }}" />
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-journal-text text-primary"></i> Notes</div>
+        <div class="card-body">
+          <textarea name="notes" class="form-control" rows="4"
+                    placeholder="Any additional notes about this employee…">{{ employee.notes if edit_mode else '' }}</textarea>
+        </div>
+      </div>
+
+    </div><!-- /col-lg-4 -->
+
+    <!-- Submit -->
+    <div class="col-12">
+      <div class="d-flex gap-2 justify-content-end mt-2">
+        <a href="{{ url_for('employees.view', emp_id=employee.emp_id) if edit_mode else url_for('employees.index') }}"
+           class="btn btn-outline-secondary btn-lg">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+          <i class="bi bi-save me-2"></i>{{ 'Save Changes' if edit_mode else 'Add Employee' }}
+        </button>
+      </div>
+    </div>
+
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Auto-init flatpickr on date fields
+  document.querySelectorAll('.date-picker').forEach(el => {
+    flatpickr(el, { dateFormat: 'Y-m-d', allowInput: true });
+  });
+</script>
+{% endblock %}

@@ -160,6 +160,15 @@
             </div>
 
             <div class="col-md-6">
+              <label class="form-label">Plan Renewal Date Calculation Mode</label>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="renew_from_expiry" name="renew_from_expiry" value="1" checked>
+                <label class="form-check-label fw-600" for="renew_from_expiry" id="renew_label">Renew from Expiry Date (Recommended)</label>
+              </div>
+              <small class="text-muted d-block" id="renew_help">Next due will be calculated from plan expiry date, keeping continuous billing cycle.</small>
+            </div>
+
+            <div class="col-md-6">
               <label class="form-label">Payment Mode <span class="text-danger">*</span></label>
               <select name="payment_mode" class="form-select" required>
                 {% for m in payment_modes %}
@@ -458,9 +467,34 @@
       const productName = data.plan_name || 'Water Purifier Rental Services';
       resetItems(productName, data.monthly_rent || 0);
       depositInput.value = amount(data.deposit).toFixed(2);
-      nextBillingHint.textContent = data.next_billing_date
-        ? `Next billing: ${data.next_billing_date}`
-        : '';
+      
+      const renewCheck = document.getElementById('renew_from_expiry');
+      const renewLabel = document.getElementById('renew_label');
+      const renewHelp = document.getElementById('renew_help');
+      
+      if (data.next_billing_date) {
+        nextBillingHint.textContent = `Next billing: ${data.next_billing_date}`;
+        if (renewLabel) {
+          renewLabel.textContent = `Renew from Expiry Date (${data.next_billing_date})`;
+        }
+        if (renewHelp) {
+          renewHelp.textContent = `Calculates next billing date from ${data.next_billing_date} instead of payment date.`;
+        }
+        if (renewCheck) {
+          renewCheck.disabled = false;
+          renewCheck.checked = true;
+        }
+      } else {
+        nextBillingHint.textContent = '';
+        if (renewLabel) {
+          renewLabel.textContent = 'Renew from Expiry Date';
+        }
+        if (renewCheck) {
+          renewCheck.disabled = true;
+          renewCheck.checked = false;
+        }
+      }
+      
       if (!amountPaidInput.value) {
         amountPaidInput.value = amount(data.monthly_rent).toFixed(2);
       }

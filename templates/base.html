@@ -62,6 +62,16 @@
     </li>
 
     <li class="nav-item">
+      {% if current_user.has_permission('employees') %}
+      <a href="{{ url_for('employees.index') }}"
+         class="nav-link {% if active_page == 'employees' %}active{% endif %}">
+        <i class="bi bi-person-badge-fill"></i>
+        <span>Employees</span>
+      </a>
+      {% endif %}
+    </li>
+
+    <li class="nav-item">
       {% if current_user.has_permission('customers') %}
       <a href="{{ url_for('customers.index') }}"
          class="nav-link {% if active_page == 'customers' %}active{% endif %}">

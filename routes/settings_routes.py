@@ -194,6 +194,7 @@ def index():
                                ('inventory',   'Inventory'),
                                ('uploads',     'Uploads'),
                                ('reports',     'Reports'),
+                               ('employees',   'Employees'),
                            ],
                            role_permissions=ROLE_PERMISSIONS,
                            active_page='settings')

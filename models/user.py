@@ -12,10 +12,12 @@ ROLE_PERMISSIONS = {
     'admin': {
         'customers', 'machines', 'payments', 'maintenance', 'expenses',
         'uploads', 'reports', 'settings', 'leads', 'accounting', 'inventory',
+        'employees',
     },
     'operator': {
         'customers', 'machines', 'payments', 'maintenance', 'expenses',
         'uploads', 'reports', 'leads', 'accounting', 'inventory',
+        'employees',
     },
     'technician': {'maintenance', 'machines', 'inventory'},
     'custom': set(),

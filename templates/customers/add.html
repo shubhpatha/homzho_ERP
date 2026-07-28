@@ -158,8 +158,30 @@
               <input type="number" name="installation_cost" class="form-control" placeholder="0" min="0" step="0.01" value="{{ form_data.get('installation_cost', '') }}" />
             </div>
             <div class="col-12">
-              <label class="form-label">Installed By</label>
-              <input type="text" name="installed_by" class="form-control" placeholder="Technician name" value="{{ form_data.get('installed_by', '') }}" />
+              <label class="form-label">Installed By <span class="text-danger">*</span></label>
+              {% if technicians %}
+              <select name="installed_by_emp_id" id="installerSelect" class="form-select" required>
+                <option value="">— Select Technician / Installer —</option>
+                {% for t in technicians %}
+                <option value="{{ t.emp_id }}" data-name="{{ t.emp_name }}"
+                  {% if form_data.get('installed_by_emp_id')|string == t.emp_id|string %}selected{% endif %}>
+                  {{ t.emp_name }} ({{ t.emp_type }}{% if t.emp_code %} · {{ t.emp_code }}{% endif %})
+                </option>
+                {% endfor %}
+              </select>
+              <input type="hidden" name="installed_by" id="installerNameHidden"
+                     value="{{ form_data.get('installed_by', '') }}" />
+              <div class="form-text">Only active employees are shown.</div>
+              {% else %}
+              <div class="alert alert-warning py-2 mb-1">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                No active employees found.
+                <a href="{{ url_for('employees.add') }}" target="_blank" class="alert-link">Add an employee</a> first.
+              </div>
+              <input type="hidden" name="installed_by_emp_id" value="" />
+              <input type="text" name="installed_by" class="form-control"
+                     placeholder="Technician name" value="{{ form_data.get('installed_by', '') }}" />
+              {% endif %}
             </div>
           </div>
         </div>
@@ -190,6 +212,7 @@
 </form>
 
 <script>
+  // Plan preview
   function updatePlanPreview() {
     const selected = document.getElementById('planSelect')?.selectedOptions[0];
     document.getElementById('planValidity').value = selected?.dataset.days ? `${selected.dataset.days} days` : '';
@@ -198,5 +221,17 @@
   }
   document.getElementById('planSelect')?.addEventListener('change', updatePlanPreview);
   updatePlanPreview();
+
+  // Sync installer employee name → hidden field
+  const installerSel = document.getElementById('installerSelect');
+  const installerHidden = document.getElementById('installerNameHidden');
+  if (installerSel && installerHidden) {
+    function syncInstallerName() {
+      const opt = installerSel.selectedOptions[0];
+      installerHidden.value = opt ? (opt.dataset.name || '') : '';
+    }
+    installerSel.addEventListener('change', syncInstallerName);
+    syncInstallerName();
+  }
 </script>
 {% endblock %}

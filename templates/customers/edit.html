@@ -135,7 +135,29 @@
             </div>
             <div class="col-12">
               <label class="form-label">Installed By</label>
-              <input type="text" name="installed_by" class="form-control" value="{{ customer.installed_by or '' }}" placeholder="Technician name" />
+              {% if technicians %}
+              <select name="installed_by_emp_id" id="installerSelectEdit" class="form-select">
+                <option value="">— Select Technician / Installer —</option>
+                {% for t in technicians %}
+                <option value="{{ t.emp_id }}" data-name="{{ t.emp_name }}"
+                  {% if customer.installed_by_emp_id == t.emp_id %}selected{% endif %}>
+                  {{ t.emp_name }} ({{ t.emp_type }}{% if t.emp_code %} · {{ t.emp_code }}{% endif %})
+                </option>
+                {% endfor %}
+              </select>
+              <input type="hidden" name="installed_by" id="installerNameHiddenEdit"
+                     value="{{ customer.installed_by or '' }}" />
+              <div class="form-text">Only active employees are shown.</div>
+              {% else %}
+              <div class="alert alert-warning py-2 mb-1">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                No active employees found.
+                <a href="{{ url_for('employees.add') }}" target="_blank" class="alert-link">Add an employee</a> first.
+              </div>
+              <input type="hidden" name="installed_by_emp_id" value="" />
+              <input type="text" name="installed_by" class="form-control"
+                     value="{{ customer.installed_by or '' }}" placeholder="Technician name" />
+              {% endif %}
             </div>
           </div>
         </div>
@@ -171,5 +193,17 @@ function updatePlanPreview() {
 }
 document.getElementById('planSelect')?.addEventListener('change', updatePlanPreview);
 updatePlanPreview();
+
+// Sync installer employee name → hidden field
+const installerSelEdit = document.getElementById('installerSelectEdit');
+const installerHiddenEdit = document.getElementById('installerNameHiddenEdit');
+if (installerSelEdit && installerHiddenEdit) {
+  function syncInstallerEdit() {
+    const opt = installerSelEdit.selectedOptions[0];
+    installerHiddenEdit.value = opt ? (opt.dataset.name || '') : '';
+  }
+  installerSelEdit.addEventListener('change', syncInstallerEdit);
+  syncInstallerEdit();
+}
 </script>
 {% endblock %}
