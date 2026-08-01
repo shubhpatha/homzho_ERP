@@ -12,6 +12,9 @@ from models.payment import Payment
 from models.accounting import AccountLedger
 from models.customer import Customer
 from models.machine import Machine
+from models.employee import Employee
+from models.lead import Lead
+from models.maintenance import Maintenance
 from utils.tax import calculate_inclusive_gst
 from services.accounting_service import ledger_total, ledger_breakdown
 
@@ -76,6 +79,68 @@ def index():
         Customer.contract_end_date <= end_date,
     ).count()
 
+    # ── Plan distribution (customers created in period) ───────────────────────
+    plan_distribution = db.session.query(
+        Customer.plan_name,
+        func.count(Customer.cust_id).label('count')
+    ).filter(
+        func.date(Customer.created_at) >= start_date,
+        func.date(Customer.created_at) <= end_date,
+    ).group_by(Customer.plan_name).order_by(func.count(Customer.cust_id).desc()).all()
+
+    # ── Installations by employee (filtered by installation_date) ────────────
+    installations_by_emp = db.session.query(
+        Employee.emp_name,
+        func.count(Customer.cust_id).label('count')
+    ).join(Customer, Customer.installed_by_emp_id == Employee.emp_id).filter(
+        Customer.installation_date >= start_date,
+        Customer.installation_date <= end_date,
+    ).group_by(Employee.emp_id, Employee.emp_name).order_by(func.count(Customer.cust_id).desc()).all()
+
+    # ── Lead conversions by staff (filtered by lead updated_at) ──────────────
+    leads_converted_by = db.session.query(
+        Lead.contacted_by,
+        func.count(Lead.lead_id).label('count')
+    ).filter(
+        Lead.status == 'Converted',
+        Lead.contacted_by != None,
+        Lead.contacted_by != '',
+        func.date(Lead.updated_at) >= start_date,
+        func.date(Lead.updated_at) <= end_date,
+    ).group_by(Lead.contacted_by).order_by(func.count(Lead.lead_id).desc()).all()
+
+    # ── Services done by technician (filtered by service_date) ───────────────
+    # Prefer the Employee name when linked; fall back to legacy technician_name text.
+    services_by_tech_linked = db.session.query(
+        Employee.emp_name.label('technician'),
+        func.count(Maintenance.service_id).label('count')
+    ).join(Maintenance, Maintenance.technician_emp_id == Employee.emp_id).filter(
+        Maintenance.service_date >= start_date,
+        Maintenance.service_date <= end_date,
+    ).group_by(Employee.emp_id, Employee.emp_name).all()
+
+    services_by_tech_legacy = db.session.query(
+        Maintenance.technician_name.label('technician'),
+        func.count(Maintenance.service_id).label('count')
+    ).filter(
+        Maintenance.technician_emp_id == None,
+        Maintenance.technician_name != None,
+        Maintenance.technician_name != '',
+        Maintenance.service_date >= start_date,
+        Maintenance.service_date <= end_date,
+    ).group_by(Maintenance.technician_name).all()
+
+    # Merge the two result sets into one list sorted by count desc.
+    tech_map = {}
+    for row in services_by_tech_linked:
+        tech_map[row.technician] = tech_map.get(row.technician, 0) + row.count
+    for row in services_by_tech_legacy:
+        tech_map[row.technician] = tech_map.get(row.technician, 0) + row.count
+    services_by_tech = sorted(
+        [{'name': k, 'count': v} for k, v in tech_map.items()],
+        key=lambda x: x['count'], reverse=True
+    )
+
     return render_template(
         'reports.html',
         start_date=start_date,
@@ -91,6 +156,10 @@ def index():
         expense_breakdown=expense_breakdown,
         new_customers=new_customers,
         cancelled_customers=cancelled_customers,
+        plan_distribution=plan_distribution,
+        installations_by_emp=installations_by_emp,
+        leads_converted_by=leads_converted_by,
+        services_by_tech=services_by_tech,
         active_page='reports',
     )
 

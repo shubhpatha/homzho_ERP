@@ -152,5 +152,98 @@
       </div>
     </div>
   </div>
+
+  <!-- Plan Distribution -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-grid-3x3-gap text-primary"></i> Plan Distribution
+        <small class="text-muted fw-normal ms-1">(customers added in period)</small>
+      </div>
+      <div class="card-body p-0">
+        {% if plan_distribution %}
+        <ul class="list-group list-group-flush">
+          {% for p in plan_distribution %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ p.plan_name }}</span>
+            <span class="badge bg-primary rounded-pill">{{ p.count }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="p-4 text-center text-muted">No customers added in this period.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Installations by Employee -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-person-badge text-warning"></i> Installations by Employee
+        <small class="text-muted fw-normal ms-1">(by installation date)</small>
+      </div>
+      <div class="card-body p-0">
+        {% if installations_by_emp %}
+        <ul class="list-group list-group-flush">
+          {% for row in installations_by_emp %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-tools me-1 text-muted"></i>{{ row.emp_name }}</span>
+            <span class="badge bg-warning text-dark rounded-pill">{{ row.count }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="p-4 text-center text-muted">No installations recorded in this period.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Lead Conversions by Staff -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-trophy text-success"></i> Lead Conversions by Staff
+        <small class="text-muted fw-normal ms-1">(converted in period)</small>
+      </div>
+      <div class="card-body p-0">
+        {% if leads_converted_by %}
+        <ul class="list-group list-group-flush">
+          {% for row in leads_converted_by %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-person-check me-1 text-muted"></i>{{ row.contacted_by }}</span>
+            <span class="badge bg-success rounded-pill">{{ row.count }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="p-4 text-center text-muted">No lead conversions recorded in this period.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Service Done by Technician -->
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-wrench-adjustable text-info"></i> Service Done by Technician
+        <small class="text-muted fw-normal ms-1">(by service date)</small>
+      </div>
+      <div class="card-body p-0">
+        {% if services_by_tech %}
+        <ul class="list-group list-group-flush">
+          {% for row in services_by_tech %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-wrench me-1 text-muted"></i>{{ row.name }}</span>
+            <span class="badge bg-info text-dark rounded-pill">{{ row.count }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="p-4 text-center text-muted">No service records found in this period.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
