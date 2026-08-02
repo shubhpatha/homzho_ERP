@@ -32,7 +32,24 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Service Date <span class="text-danger">*</span></label>
-              <input type="date" name="service_date" class="form-control" value="{{ service_date_default }}" required />
+              <input type="date" name="service_date" id="serviceDateMaint" class="form-control" value="{{ service_date_default }}" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Next Service Due After <span class="text-danger">*</span></label>
+              <select name="next_service_months" id="nextSvcMonthsMaint" class="form-select">
+                <option value="1">1 Month</option>
+                <option value="2">2 Months</option>
+                <option value="3">3 Months</option>
+                <option value="4" selected>4 Months</option>
+                <option value="6">6 Months</option>
+                <option value="12">12 Months</option>
+              </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end pb-1">
+              <div class="text-muted small">
+                <i class="bi bi-calendar-check text-info me-1"></i>
+                <strong id="nextSvcPreviewMaint">—</strong>
+              </div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Service Type <span class="text-danger">*</span></label>
@@ -346,5 +363,20 @@
   });
 
 })();
+
+// Next service date live preview
+function updateNextSvcPreviewMaint() {
+  const dateVal = document.getElementById('serviceDateMaint')?.value;
+  const months = parseInt(document.getElementById('nextSvcMonthsMaint')?.value || 4);
+  const preview = document.getElementById('nextSvcPreviewMaint');
+  if (!preview) return;
+  if (!dateVal) { preview.textContent = '—'; return; }
+  const d = new Date(dateVal);
+  d.setMonth(d.getMonth() + months);
+  preview.textContent = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+document.getElementById('serviceDateMaint')?.addEventListener('change', updateNextSvcPreviewMaint);
+document.getElementById('nextSvcMonthsMaint')?.addEventListener('change', updateNextSvcPreviewMaint);
+updateNextSvcPreviewMaint();
 </script>
 {% endblock %}

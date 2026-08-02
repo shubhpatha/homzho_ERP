@@ -2,6 +2,7 @@
 routes/maintenance_routes.py - Maintenance record CRUD with image uploads.
 """
 from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, Response, current_app, jsonify)
 from flask_login import login_required, current_user
@@ -151,13 +152,16 @@ def add():
                 return redirect(url_for('maintenance.add'))
 
             service_date = date.fromisoformat(request.form['service_date'])
-            next_service = service_date + timedelta(days=90)
+            # Read interval chosen by the technician (default 3 months)
+            next_svc_months = int(request.form.get('next_service_months') or 3)
+            next_service = service_date + relativedelta(months=next_svc_months)
 
             record = Maintenance(
                 machine_id=machine_id,
                 customer_id=request.form.get('customer_id') or None,
                 service_date=service_date,
                 next_service_date=next_service,
+                next_service_months=next_svc_months,
                 service_type=request.form['service_type'],
                 parts_replaced=request.form.get('parts_replaced', '').strip(),
                 filter_changed=bool(request.form.get('filter_changed')),

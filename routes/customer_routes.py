@@ -2,6 +2,7 @@
 routes/customer_routes.py - Full customer CRUD with search, filter, CSV import/export.
 """
 from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 import urllib.parse
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, Response, current_app)
@@ -186,6 +187,8 @@ def add():
 
             machine_id = request.form.get('machine_id')
             machine = None
+            # Months until next service (from dropdown; default 3)
+            next_svc_months = int(request.form.get('next_service_months') or 3)
             if machine_id:
                 machine = db.session.get(Machine, int(machine_id))
                 if machine and machine.machine_status == 'Available':
@@ -195,7 +198,7 @@ def add():
                         date.fromisoformat(request.form['installation_date'])
                         if request.form.get('installation_date') else date.today()
                     )
-                    customer.next_service_date = customer.installation_date + timedelta(days=90)
+                    # next_service_date lives on Machine only (Customer reads it via @property)
 
             db.session.add(customer)
             db.session.flush()
@@ -204,7 +207,7 @@ def add():
                 machine.machine_status = 'Installed'
                 machine.assigned_customer_id = customer.cust_id
                 machine.installation_date = customer.installation_date
-                machine.next_service_date = customer.next_service_date
+                machine.next_service_date = customer.installation_date + relativedelta(months=next_svc_months)
                 db.session.add(MachineAssignmentHistory(
                     machine_id=machine.machine_id,
                     customer_id=customer.cust_id,
@@ -442,11 +445,12 @@ def edit(cust_id):
 
                     customer.machine_id = new_machine_id
                     customer.machine_serial_no = new_machine.machine_serial_no
-                    customer.next_service_date = assignment_date + timedelta(days=90)
+                    # next_service_date lives on Machine only
+                    next_svc_months_edit = int(request.form.get('next_service_months') or 3)
                     new_machine.machine_status = 'Installed'
                     new_machine.assigned_customer_id = cust_id
                     new_machine.installation_date = assignment_date
-                    new_machine.next_service_date = customer.next_service_date
+                    new_machine.next_service_date = assignment_date + relativedelta(months=next_svc_months_edit)
                     hist = MachineAssignmentHistory(
                         machine_id=new_machine_id,
                         customer_id=cust_id,
@@ -462,11 +466,12 @@ def edit(cust_id):
             elif customer.machine_id:
                 machine = db.session.get(Machine, customer.machine_id)
                 if machine and machine.assigned_customer_id in (None, cust_id):
-                    customer.next_service_date = assignment_date + timedelta(days=90)
+                    next_svc_months_keep = int(request.form.get('next_service_months') or 3)
+                    # next_service_date lives on Machine only
                     machine.machine_status = 'Installed'
                     machine.assigned_customer_id = cust_id
                     machine.installation_date = assignment_date
-                    machine.next_service_date = customer.next_service_date
+                    machine.next_service_date = assignment_date + relativedelta(months=next_svc_months_keep)
 
             db.session.commit()
             # Sync (upsert or remove) installation cost in the accounting ledger

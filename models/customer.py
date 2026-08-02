@@ -52,7 +52,8 @@ class Customer(db.Model):
 
     # Service tracking
     last_service_date = db.Column(db.Date, nullable=True)
-    next_service_date = db.Column(db.Date, nullable=True)
+    # next_service_date is no longer stored here — it reads from machine.
+    # See @property below.
     next_billing_date = db.Column(db.Date, nullable=True)
     
     # Referral Tracking
@@ -81,6 +82,18 @@ class Customer(db.Model):
         """Auto-calculate plan_end_date from start date + duration."""
         if self.plan_start_date and self.plan_duration_months:
             self.plan_end_date = self.plan_start_date + relativedelta(months=self.plan_duration_months)
+
+    @property
+    def next_service_date(self):
+        """Single source of truth: reads next_service_date from the assigned machine.
+
+        Backward-compatible — any template or route that reads
+        ``customer.next_service_date`` continues to work unchanged.
+        Returns None when no machine is assigned.
+        """
+        if self.machine:
+            return self.machine.next_service_date
+        return None
 
     def __repr__(self):
         return f'<Customer {self.cust_id} - {self.cust_name}>'

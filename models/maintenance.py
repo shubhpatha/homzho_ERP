@@ -2,6 +2,7 @@
 models/maintenance.py - Machine maintenance/service records.
 """
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from extensions import db
 
 
@@ -13,7 +14,8 @@ class Maintenance(db.Model):
     machine_id = db.Column(db.Integer, db.ForeignKey('machines.machine_id'), nullable=False, index=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.cust_id'), nullable=True)
     service_date = db.Column(db.Date, nullable=False, index=True)
-    next_service_date = db.Column(db.Date, nullable=True)   # Auto: service_date + 90 days
+    next_service_date = db.Column(db.Date, nullable=True)   # Auto: service_date + next_service_months
+    next_service_months = db.Column(db.Integer, default=3, nullable=False)  # Interval chosen at service time
     service_type = db.Column(db.String(80), nullable=False)  # Routine, Filter Change, Repair, etc.
     parts_replaced = db.Column(db.Text)
     filter_changed = db.Column(db.Boolean, default=False)
@@ -34,10 +36,11 @@ class Maintenance(db.Model):
     technician = db.relationship('Employee', foreign_keys=[technician_emp_id],
                                   backref='service_records')
 
-    def set_next_service_date(self):
-        """Auto-calculate next service date = service_date + 90 days."""
+    def set_next_service_date(self, months=3):
+        """Calculate next service date = service_date + given months (default 3)."""
         if self.service_date:
-            self.next_service_date = self.service_date + timedelta(days=90)
+            self.next_service_months = months
+            self.next_service_date = self.service_date + relativedelta(months=months)
 
     def __repr__(self):
         return f'<Maintenance Machine#{self.machine_id} on {self.service_date}>'
