@@ -457,12 +457,10 @@ def edit(cust_id):
 
                     customer.machine_id = new_machine_id
                     customer.machine_serial_no = new_machine.machine_serial_no
-                    # next_service_date lives on Machine only
-                    next_svc_months_edit = int(request.form.get('next_service_months') or 3)
                     new_machine.machine_status = 'Installed'
                     new_machine.assigned_customer_id = cust_id
                     new_machine.installation_date = assignment_date
-                    new_machine.next_service_date = assignment_date + relativedelta(months=next_svc_months_edit)
+                    # next_service_date is intentionally left as-is (set by Maintenance module)
                     hist = MachineAssignmentHistory(
                         machine_id=new_machine_id,
                         customer_id=cust_id,
@@ -476,32 +474,13 @@ def edit(cust_id):
                     customer.installation_date = None
                     customer.next_service_date = None
             elif customer.machine_id:
-                # Machine is UNCHANGED — preserve the existing next_service_date
-                # unless the user deliberately changed the interval dropdown.
+                # Machine is UNCHANGED — never touch next_service_date here.
+                # It is exclusively managed by the Maintenance module.
                 machine = db.session.get(Machine, customer.machine_id)
                 if machine and machine.assigned_customer_id in (None, cust_id):
                     machine.machine_status = 'Installed'
                     machine.assigned_customer_id = cust_id
                     machine.installation_date = assignment_date
-
-                    next_svc_months_edit = int(request.form.get('next_service_months') or 4)
-                    original_months_raw  = request.form.get('next_service_months_original', '').strip()
-                    current_nsd_raw      = request.form.get('current_next_service_date', '').strip()
-                    try:
-                        current_nsd = date.fromisoformat(current_nsd_raw) if current_nsd_raw else None
-                    except ValueError:
-                        current_nsd = None
-
-                    user_changed_interval = (
-                        original_months_raw and original_months_raw != str(next_svc_months_edit)
-                    )
-
-                    if current_nsd and not user_changed_interval:
-                        # User left the dropdown untouched → keep the stored next_service_date
-                        machine.next_service_date = current_nsd
-                    else:
-                        # User explicitly picked a new interval → recalculate
-                        machine.next_service_date = assignment_date + relativedelta(months=next_svc_months_edit)
 
             db.session.commit()
             # Sync (upsert or remove) installation cost in the accounting ledger
@@ -517,23 +496,9 @@ def edit(cust_id):
             current_app.logger.error(f'Error editing customer {cust_id}: {exc}', exc_info=True)
             flash(f'Error updating customer: {exc}', 'danger')
 
-    # Determine the current service interval from the last maintenance record
-    # (Machine model does not store this; Maintenance records do via next_service_months).
-    current_next_service_months = 4  # default
-    if customer.machine_id:
-        last_maint = (
-            Maintenance.query
-            .filter_by(machine_id=customer.machine_id)
-            .order_by(Maintenance.service_date.desc())
-            .first()
-        )
-        if last_maint and last_maint.next_service_months:
-            current_next_service_months = last_maint.next_service_months
-
     return render_template('customers/edit.html', customer=customer, machines=machines,
                            plans=plans, technicians=technicians,
                            selected_plan_id=selected_plan.plan_id if selected_plan else None,
-                           current_next_service_months=current_next_service_months,
                            active_page='customers')
 
 
