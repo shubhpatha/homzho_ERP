@@ -133,22 +133,34 @@
               <label class="form-label">Installation Cost (₹)</label>
               <input type="number" name="installation_cost" class="form-control" value="{{ customer.installation_cost or 0 }}" min="0" step="0.01" />
             </div>
+            {# Hidden: carries the machine's current next_service_date so the backend
+               can preserve it when the user makes no changes to the machine. #}
+            {% if customer.machine and customer.machine.next_service_date %}
+            <input type="hidden" name="current_next_service_date"
+                   value="{{ customer.machine.next_service_date.isoformat() }}" />
+            {% endif %}
+            {# Hidden: records the original months value so backend can detect a user change #}
+            <input type="hidden" name="next_service_months_original" value="{{ current_next_service_months }}" />
             <div class="col-md-6">
               <label class="form-label">Next Service Due After</label>
-              <select name="next_service_months" id="nextSvcMonthsEdit" class="form-select">
-                <option value="1">1 Month</option>
-                <option value="2">2 Months</option>
-                <option value="3">3 Months</option>
-                <option value="4" {% if not customer.machine or not customer.machine.next_service_date %}selected{% endif %}>4 Months</option>
-                <option value="6">6 Months</option>
-                <option value="12">12 Months</option>
+              <select name="next_service_months" id="nextSvcMonthsEdit" class="form-select"
+                      data-original="{{ current_next_service_months }}">
+                {% for m in [1, 2, 3, 4, 6, 12] %}
+                <option value="{{ m }}" {% if current_next_service_months == m %}selected{% endif %}>
+                  {{ m }} Month{{ 's' if m > 1 else '' }}
+                </option>
+                {% endfor %}
               </select>
-              <div class="form-text">Only applies when a machine is assigned or reassigned.</div>
+              <div class="form-text">Changing this only applies when machine is new or interval is updated.</div>
             </div>
             <div class="col-md-6 d-flex align-items-end">
               <div class="text-muted small w-100">
                 <i class="bi bi-calendar-check text-primary me-1"></i>
-                Next service: <strong id="nextSvcPreviewEdit">—</strong>
+                Next service: <strong id="nextSvcPreviewEdit">
+                  {% if customer.machine and customer.machine.next_service_date %}
+                    {{ customer.machine.next_service_date.strftime('%d %b %Y') }}
+                  {% else %}—{% endif %}
+                </strong>
               </div>
             </div>
             <div class="col-12">
@@ -225,18 +237,34 @@ if (installerSelEdit && installerHiddenEdit) {
 }
 
 // Next service date live preview
-function updateNextSvcPreviewEdit() {
-  const dateVal = document.getElementById('installDateEdit')?.value;
-  const months = parseInt(document.getElementById('nextSvcMonthsEdit')?.value || 4);
-  const preview = document.getElementById('nextSvcPreviewEdit');
-  if (!preview) return;
-  if (!dateVal) { preview.textContent = '—'; return; }
+// Only recalculates when the user actually changes the months dropdown or install date.
+// On page load we show the real stored next_service_date (already rendered server-side).
+const nextSvcSelect = document.getElementById('nextSvcMonthsEdit');
+const installDateInput = document.getElementById('installDateEdit');
+const nextSvcPreview = document.getElementById('nextSvcPreviewEdit');
+
+function recalcNextSvcPreview() {
+  const dateVal = installDateInput?.value;
+  const months = parseInt(nextSvcSelect?.value || 4);
+  if (!nextSvcPreview) return;
+  if (!dateVal) { nextSvcPreview.textContent = '—'; return; }
   const d = new Date(dateVal);
   d.setMonth(d.getMonth() + months);
-  preview.textContent = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  nextSvcPreview.textContent = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-document.getElementById('installDateEdit')?.addEventListener('change', updateNextSvcPreviewEdit);
-document.getElementById('nextSvcMonthsEdit')?.addEventListener('change', updateNextSvcPreviewEdit);
-updateNextSvcPreviewEdit();
+
+// Track whether the user has intentionally touched these fields
+let nextSvcUserChanged = false;
+if (nextSvcSelect) {
+  nextSvcSelect.addEventListener('change', () => { nextSvcUserChanged = true; recalcNextSvcPreview(); });
+}
+if (installDateInput) {
+  installDateInput.addEventListener('change', () => {
+    // Only recalc preview if user has also changed the interval, to avoid
+    // overwriting a valid future next_service_date just because install date shifted.
+    if (nextSvcUserChanged) recalcNextSvcPreview();
+  });
+}
+// Do NOT call recalcNextSvcPreview() on load — the server already rendered the correct date.
 </script>
 {% endblock %}

@@ -287,6 +287,7 @@
             <thead>
               <tr>
                 <th>Date</th><th>Component</th><th>Amount</th><th>Mode</th><th>Ref.</th><th>By</th>
+                <th title="Salary Slip"><i class="bi bi-file-earmark-text text-primary"></i></th>
                 {% if current_user.is_admin() %}<th></th>{% endif %}
               </tr>
             </thead>
@@ -301,11 +302,18 @@
                   </span>
                 </td>
                 <td class="fw-600 {% if r.component in ('Basic Salary','Bonus','Incentive','Reimbursement') %}text-success{% else %}text-danger{% endif %}">
-                  {% if r.component in ('Deduction','Advance') %}–{% endif %}₹{{ '{:,.0f}'.format(r.amount) }}
+                  {% if r.component in ('Deduction','Advance') %}–{% endif %}&#8377;{{ '{:,.0f}'.format(r.amount) }}
                 </td>
                 <td>{{ r.payment_mode }}</td>
                 <td><small class="text-muted">{{ r.reference_no or '—' }}</small></td>
                 <td><small class="text-muted">{{ r.paid_by or '—' }}</small></td>
+                <td>
+                  <a href="{{ url_for('employees.salary_slip', emp_id=emp.emp_id, month=r.record_date.month, year=r.record_date.year) }}"
+                     class="btn btn-sm btn-icon btn-outline-primary"
+                     title="View Salary Slip – {{ r.record_date.strftime('%B %Y') }}">
+                    <i class="bi bi-file-earmark-text"></i>
+                  </a>
+                </td>
                 {% if current_user.is_admin() %}
                 <td>
                   <form method="POST" action="{{ url_for('employees.delete_salary', record_id=r.record_id) }}"
@@ -317,7 +325,7 @@
                 {% endif %}
               </tr>
               {% else %}
-              <tr><td colspan="7" class="text-center text-muted py-4">No salary entries for this month.</td></tr>
+              <tr><td colspan="8" class="text-center text-muted py-4">No salary entries for this month.</td></tr>
               {% endfor %}
             </tbody>
           </table>

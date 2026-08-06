@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Leads – Homzho ERP{% endblock %}
 
+{% macro sort_link(label, col, current_sort, current_dir, search, status_filter, score_filter, contact_date_filter) %}
+  {%- set next_dir = 'desc' if (current_sort == col and current_dir == 'asc') else 'asc' -%}
+  {%- set icon = '↑' if (current_sort == col and current_dir == 'asc') else ('↓' if (current_sort == col and current_dir == 'desc') else '↕') -%}
+  <a href="{{ url_for('leads.index', sort=col, sort_dir=next_dir, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter) }}"
+     class="sort-link {% if current_sort == col %}active-sort{% endif %}" style="text-decoration:none;color:inherit;white-space:nowrap;">
+    {{ label }} <span class="sort-icon" style="font-size:0.8em;opacity:{% if current_sort == col %}1{% else %}0.4{% endif %};">{{ icon }}</span>
+  </a>
+{% endmacro %}
+
 {% block content %}
 <div class="page-header">
   <div>
@@ -57,8 +66,8 @@
           <th>Contact</th>
           <th>Score</th>
           <th>Status</th>
-          <th>Next Contact</th>
-          <th>Added On</th>
+          <th>{{ sort_link('Next Contact', 'next_contact', sort, sort_dir, search, status_filter, score_filter, contact_date_filter) }}</th>
+          <th>{{ sort_link('Added On', 'added_on', sort, sort_dir, search, status_filter, score_filter, contact_date_filter) }}</th>
         </tr>
       </thead>
       <tbody>
@@ -113,17 +122,17 @@
     <small class="text-muted">Showing {{ ((pagination.page-1)*pagination.per_page)+1 }}–{{ [pagination.page*pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</small>
     <nav><ul class="pagination pagination-sm mb-0">
       {% if pagination.has_prev %}
-      <li class="page-item"><a class="page-link" href="{{ url_for('leads.index', page=pagination.prev_num, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter) }}">‹</a></li>
+      <li class="page-item"><a class="page-link" href="{{ url_for('leads.index', page=pagination.prev_num, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter, sort=sort, sort_dir=sort_dir) }}">‹</a></li>
       {% endif %}
       {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
         {% if p %}
-        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('leads.index', page=p, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter) }}">{{ p }}</a></li>
+        <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('leads.index', page=p, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter, sort=sort, sort_dir=sort_dir) }}">{{ p }}</a></li>
         {% else %}
         <li class="page-item disabled"><span class="page-link">…</span></li>
         {% endif %}
       {% endfor %}
       {% if pagination.has_next %}
-      <li class="page-item"><a class="page-link" href="{{ url_for('leads.index', page=pagination.next_num, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter) }}">›</a></li>
+      <li class="page-item"><a class="page-link" href="{{ url_for('leads.index', page=pagination.next_num, search=search, status=status_filter, score=score_filter, contact_date=contact_date_filter, sort=sort, sort_dir=sort_dir) }}">›</a></li>
       {% endif %}
     </ul></nav>
   </div>

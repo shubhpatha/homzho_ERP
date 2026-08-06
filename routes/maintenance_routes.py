@@ -156,9 +156,17 @@ def add():
             next_svc_months = int(request.form.get('next_service_months') or 3)
             next_service = service_date + relativedelta(months=next_svc_months)
 
+            # Resolve customer_id: prefer form value, fall back to the machine's
+            # currently assigned customer so records always link to a customer.
+            form_customer_id = request.form.get('customer_id') or None
+            resolved_customer_id = (
+                int(form_customer_id) if form_customer_id
+                else machine.assigned_customer_id  # auto-populate from machine
+            )
+
             record = Maintenance(
                 machine_id=machine_id,
-                customer_id=request.form.get('customer_id') or None,
+                customer_id=resolved_customer_id,
                 service_date=service_date,
                 next_service_date=next_service,
                 next_service_months=next_svc_months,

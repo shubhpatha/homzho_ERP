@@ -293,7 +293,19 @@ def view(cust_id):
 
     customer = db.get_or_404(Customer, cust_id)
     payments = Payment.query.filter_by(customer_id=cust_id).order_by(Payment.payment_date.desc()).all()
-    maintenance_records = Maintenance.query.filter_by(customer_id=cust_id).order_by(Maintenance.service_date.desc()).all()
+    # Query by customer_id OR by the machine currently assigned to this customer
+    # (customer_id is nullable — records added from the machine/maintenance module
+    #  may only have machine_id set, so we must include both paths)
+    _maint_filter = [Maintenance.customer_id == cust_id]
+    if customer.machine_id:
+        _maint_filter.append(Maintenance.machine_id == customer.machine_id)
+    maintenance_records = (
+        Maintenance.query
+        .filter(db.or_(*_maint_filter))
+        .order_by(Maintenance.service_date.desc())
+        .distinct()
+        .all()
+    )
     uploads = Upload.query.filter_by(customer_id=cust_id).order_by(Upload.uploaded_at.desc()).all()
     assignment_history = MachineAssignmentHistory.query.filter_by(customer_id=cust_id).order_by(MachineAssignmentHistory.assigned_on.desc()).all()
     referral_token = generate_referral_token(customer.cust_id)
@@ -464,14 +476,32 @@ def edit(cust_id):
                     customer.installation_date = None
                     customer.next_service_date = None
             elif customer.machine_id:
+                # Machine is UNCHANGED — preserve the existing next_service_date
+                # unless the user deliberately changed the interval dropdown.
                 machine = db.session.get(Machine, customer.machine_id)
                 if machine and machine.assigned_customer_id in (None, cust_id):
-                    next_svc_months_keep = int(request.form.get('next_service_months') or 3)
-                    # next_service_date lives on Machine only
                     machine.machine_status = 'Installed'
                     machine.assigned_customer_id = cust_id
                     machine.installation_date = assignment_date
-                    machine.next_service_date = assignment_date + relativedelta(months=next_svc_months_keep)
+
+                    next_svc_months_edit = int(request.form.get('next_service_months') or 4)
+                    original_months_raw  = request.form.get('next_service_months_original', '').strip()
+                    current_nsd_raw      = request.form.get('current_next_service_date', '').strip()
+                    try:
+                        current_nsd = date.fromisoformat(current_nsd_raw) if current_nsd_raw else None
+                    except ValueError:
+                        current_nsd = None
+
+                    user_changed_interval = (
+                        original_months_raw and original_months_raw != str(next_svc_months_edit)
+                    )
+
+                    if current_nsd and not user_changed_interval:
+                        # User left the dropdown untouched → keep the stored next_service_date
+                        machine.next_service_date = current_nsd
+                    else:
+                        # User explicitly picked a new interval → recalculate
+                        machine.next_service_date = assignment_date + relativedelta(months=next_svc_months_edit)
 
             db.session.commit()
             # Sync (upsert or remove) installation cost in the accounting ledger
@@ -487,9 +517,23 @@ def edit(cust_id):
             current_app.logger.error(f'Error editing customer {cust_id}: {exc}', exc_info=True)
             flash(f'Error updating customer: {exc}', 'danger')
 
+    # Determine the current service interval from the last maintenance record
+    # (Machine model does not store this; Maintenance records do via next_service_months).
+    current_next_service_months = 4  # default
+    if customer.machine_id:
+        last_maint = (
+            Maintenance.query
+            .filter_by(machine_id=customer.machine_id)
+            .order_by(Maintenance.service_date.desc())
+            .first()
+        )
+        if last_maint and last_maint.next_service_months:
+            current_next_service_months = last_maint.next_service_months
+
     return render_template('customers/edit.html', customer=customer, machines=machines,
                            plans=plans, technicians=technicians,
                            selected_plan_id=selected_plan.plan_id if selected_plan else None,
+                           current_next_service_months=current_next_service_months,
                            active_page='customers')
 
 

@@ -608,3 +608,109 @@ def delete_salary(record_id):
         flash(f'Error: {exc}', 'danger')
 
     return redirect(url_for('employees.view', emp_id=emp_id, month=month, year=year))
+
+
+# ---------------------------------------------------------------------------
+# Salary Slip — Printable slip for a given month
+# ---------------------------------------------------------------------------
+
+@employee_bp.route('/<int:emp_id>/salary-slip')
+@login_required
+def salary_slip(emp_id):
+    """Generate a printable salary slip for a given employee and month."""
+    guard = _require_perm()
+    if guard:
+        return guard
+
+    emp = db.get_or_404(Employee, emp_id)
+    today = date.today()
+    month = request.args.get('month', today.month, type=int)
+    year  = request.args.get('year',  today.year,  type=int)
+
+    # Clamp
+    if month < 1:   month, year = 12, year - 1
+    elif month > 12: month, year = 1,  year + 1
+
+    _, days_in_month = monthrange(year, month)
+
+    # ---- Attendance for the month ----
+    att_logs = AttendanceLog.query.filter(
+        AttendanceLog.emp_id == emp_id,
+        extract('month', AttendanceLog.att_date) == month,
+        extract('year',  AttendanceLog.att_date) == year,
+    ).all()
+
+    att_counts = {s: 0 for s in ATTENDANCE_STATUSES}
+    for log in att_logs:
+        if log.status in att_counts:
+            att_counts[log.status] += 1
+
+    present_days   = att_counts['Present']
+    absent_days    = att_counts['Absent']
+    half_days      = att_counts['Half Day']
+    leave_days     = att_counts['Leave']
+    week_off_days  = att_counts['Week Off']
+    holiday_days   = att_counts['Holiday']
+
+    # Working days = total days minus week-offs and holidays
+    working_days = days_in_month - week_off_days - holiday_days
+    if working_days <= 0:
+        working_days = days_in_month  # fallback: avoid div/0
+
+    # Effective days worked (half-day counts 0.5)
+    effective_days = present_days + (half_days * 0.5) + leave_days
+
+    # ---- Salary records for the month ----
+    salary_records = SalaryRecord.query.filter(
+        SalaryRecord.emp_id == emp_id,
+        extract('month', SalaryRecord.record_date) == month,
+        extract('year',  SalaryRecord.record_date) == year,
+    ).order_by(SalaryRecord.record_date).all()
+
+    # Separate earnings vs deductions
+    earnings   = [r for r in salary_records if r.component in ('Basic Salary', 'Bonus', 'Incentive', 'Reimbursement')]
+    deductions = [r for r in salary_records if r.component in ('Advance', 'Deduction')]
+
+    total_earnings   = sum(r.amount for r in earnings)
+    total_deductions = sum(r.amount for r in deductions)
+    net_payable      = total_earnings - total_deductions
+
+    # If no basic salary entry exists, compute an earned-basic estimate from attendance
+    has_basic = any(r.component == 'Basic Salary' for r in salary_records)
+    if not has_basic and emp.monthly_salary > 0:
+        earned_basic = round((effective_days / working_days) * emp.monthly_salary, 2) if att_logs else emp.monthly_salary
+    else:
+        earned_basic = None  # already captured in records
+
+    month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                   'July', 'August', 'September', 'October', 'November', 'December']
+
+    slip_id = f"HZ-SAL-{emp.emp_id:03d}-{year}{month:02d}"
+
+    return render_template(
+        'employees/salary_slip.html',
+        emp=emp,
+        month=month,
+        year=year,
+        month_name=month_names[month],
+        days_in_month=days_in_month,
+        working_days=working_days,
+        present_days=present_days,
+        absent_days=absent_days,
+        half_days=half_days,
+        leave_days=leave_days,
+        week_off_days=week_off_days,
+        holiday_days=holiday_days,
+        effective_days=effective_days,
+        salary_records=salary_records,
+        earnings=earnings,
+        deductions=deductions,
+        total_earnings=total_earnings,
+        total_deductions=total_deductions,
+        net_payable=net_payable,
+        has_basic=has_basic,
+        earned_basic=earned_basic,
+        slip_id=slip_id,
+        today=today,
+        active_page='employees',
+    )

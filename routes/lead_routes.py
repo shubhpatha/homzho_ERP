@@ -117,6 +117,8 @@ def index():
     status_filter = request.args.get('status', '').strip()
     score_filter = request.args.get('score', '').strip()
     contact_date_filter = request.args.get('contact_date', '').strip()  # YYYY-MM-DD
+    sort = request.args.get('sort', '').strip()          # 'added_on' | 'next_contact'
+    sort_dir = request.args.get('sort_dir', 'asc').strip()  # 'asc' | 'desc'
 
     query = Lead.query
 
@@ -139,12 +141,23 @@ def index():
         except ValueError:
             pass  # ignore bad date input
 
-    # Default sort: leads with a next_contact_date come first (soonest first),
-    # then the rest ordered by created_at descending
-    query = query.order_by(
-        Lead.next_contact_date.asc().nulls_last(),
-        Lead.created_at.desc()
-    )
+    # Sort by user-selected column, or fall back to default
+    if sort == 'added_on':
+        col = Lead.created_at
+        query = query.order_by(col.desc() if sort_dir == 'desc' else col.asc())
+    elif sort == 'next_contact':
+        col = Lead.next_contact_date
+        if sort_dir == 'desc':
+            query = query.order_by(col.desc().nulls_last())
+        else:
+            query = query.order_by(col.asc().nulls_last())
+    else:
+        # Default sort: leads with a next_contact_date come first (soonest first),
+        # then the rest ordered by created_at descending
+        query = query.order_by(
+            Lead.next_contact_date.asc().nulls_last(),
+            Lead.created_at.desc()
+        )
     pagination = get_page_items(query, page)
 
     return render_template(
@@ -158,6 +171,8 @@ def index():
         statuses=LEAD_STATUSES,
         scores=LEAD_SCORES,
         today=date.today(),
+        sort=sort,
+        sort_dir=sort_dir,
         active_page='leads'
     )
 
