@@ -1,0 +1,59 @@
+# ──────────────────────────────────────────────────────────────
+# Homzho ERP — docker-compose.yml
+# For LOCAL testing of the production image before pushing to GCP.
+# Usage:
+#   docker compose up --build
+#   Open http://localhost:8080
+# ──────────────────────────────────────────────────────────────
+
+services:
+  web:
+    build: .
+    image: homzho-erp:latest
+    container_name: homzho_erp
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+    # ── Environment variables ─────────────────────────────────
+    # In production on GCP, inject these via Secret Manager or
+    # Cloud Run --set-env-vars / --set-secrets flags instead.
+    environment:
+      FLASK_ENV: production
+      PORT: 8080
+      GUNICORN_WORKERS: 3
+      GUNICORN_THREADS: 2
+      GUNICORN_TIMEOUT: 120
+      LOG_LEVEL: error
+
+    # Load secrets from a local .env.production file (never commit this)
+    env_file:
+      - .env.production
+
+    # ── Persistent volumes ────────────────────────────────────
+    # Maps named volumes to the directories the app writes to.
+    # On GCP Cloud Run: replace with GCS FUSE mount or Cloud Filestore.
+    # On GKE: use a PersistentVolumeClaim.
+    volumes:
+      - uploads_data:/app/static/uploads
+      - exports_data:/app/exports
+      - backups_data:/app/backups
+      - logs_data:/app/logs
+      - db_data:/app        # mounts the whole /app so database.db persists
+                            # (only needed for SQLite; remove for PostgreSQL)
+
+    # ── Health check ──────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/favicon.ico"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+# ── Named volumes ─────────────────────────────────────────────
+volumes:
+  uploads_data:
+  exports_data:
+  backups_data:
+  logs_data:
+  db_data:
