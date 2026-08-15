@@ -19,6 +19,7 @@ from services.export_service import (
     export_customers_csv, get_customer_import_template, import_customers_csv
 )
 from services.accounting_service import sync_installation_cost_to_ledger
+from services.email_service import send_customer_welcome_email
 from utils.referrals import generate_referral_token
 from utils.helpers import log_activity, get_page_items
 
@@ -328,6 +329,20 @@ def view(cust_id):
         active_page='customers',
         today=date.today(),
     )
+
+
+@customer_bp.route('/<int:cust_id>/email-welcome', methods=['POST'])
+@login_required
+def email_welcome(cust_id):
+    """Send customer welcome email manually."""
+    if not current_user.has_permission('customers'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    customer = db.get_or_404(Customer, cust_id)
+    ok, message = send_customer_welcome_email(customer)
+    flash(message, 'success' if ok else 'warning')
+    return redirect(url_for('customers.view', cust_id=customer.cust_id))
 
 
 # ---------------------------------------------------------------------------

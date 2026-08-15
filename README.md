@@ -1,5 +1,4 @@
 # Homzho Flask ERP System
-# Homzho Flask ERP System
 
 A lightweight, modular, and mobile-responsive ERP system built with Flask, designed specifically for a water purifier rental business.
 
@@ -39,7 +38,7 @@ Copy the template and fill in the values:
 ```bash
 cp .env.template .env
 ```
-Ensure you set a strong `SECRET_KEY` and define your admin credentials.
+Ensure you set a strong `SECRET_KEY` and `MAIL_PASSWORD` and define your admin credentials.
 
 **Meta Conversion API Configuration**
 To enable server-side tracking when leads convert to customers, add these to your `.env` file:

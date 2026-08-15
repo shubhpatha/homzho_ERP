@@ -27,6 +27,12 @@
     {% if lead.status != 'Converted' %}
     <a href="{{ url_for('leads.edit', lead_id=lead.lead_id) }}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Edit Lead</a>
     <a href="{{ wa_link }}" target="_blank" class="btn btn-success"><i class="bi bi-whatsapp"></i> WhatsApp Follow-up</a>
+    <form method="POST" action="{{ url_for('leads.email_followup', lead_id=lead.lead_id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button class="btn btn-outline-primary" {% if not lead.email_id %}disabled title="Lead email is missing"{% endif %}>
+        <i class="bi bi-envelope"></i> Email Follow-up
+      </button>
+    </form>
     <a href="{{ url_for('leads.convert', lead_id=lead.lead_id) }}" class="btn btn-primary"><i class="bi bi-box-arrow-in-right"></i> Convert to Customer</a>
     {% else %}
     <span class="text-muted"><i class="bi bi-check-circle-fill text-success"></i> Converted</span>

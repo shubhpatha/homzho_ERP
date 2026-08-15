@@ -13,6 +13,7 @@ from models.plan import Plan
 from utils.helpers import log_activity, get_page_items, generate_invoice_no
 from utils.tax import calculate_inclusive_gst
 from services.accounting_service import sync_payment_to_ledger
+from services.email_service import send_invoice_email
 
 payment_bp = Blueprint('payments', __name__, url_prefix='/payments')
 
@@ -340,6 +341,20 @@ def print_invoice(payment_id):
         invoice_tax=invoice['invoice_tax'],
         balance_amount=invoice['balance_amount'],
     )
+
+
+@payment_bp.route('/<int:payment_id>/email', methods=['POST'])
+@login_required
+def email_invoice(payment_id):
+    """Send invoice email manually from the invoice page."""
+    if not current_user.has_permission('payments'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    payment = db.get_or_404(Payment, payment_id)
+    ok, message = send_invoice_email(payment)
+    flash(message, 'success' if ok else 'warning')
+    return redirect(url_for('payments.view', payment_id=payment.payment_id))
 
 
 # ---------------------------------------------------------------------------

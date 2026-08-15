@@ -9,6 +9,7 @@ from models.customer import Customer
 from models.plan import Plan
 from services.meta_service import send_conversion_event
 from services.whatsapp_service import get_lead_followup_link
+from services.email_service import send_lead_followup_email
 from utils.helpers import clean_phone, log_activity, get_page_items
 from utils.referrals import load_referral_customer_id
 
@@ -247,6 +248,16 @@ def view(lead_id):
     lead = db.get_or_404(Lead, lead_id)
     wa_link = get_lead_followup_link(lead.name, lead.contact_number)
     return render_template('leads/view.html', lead=lead, wa_link=wa_link, today=date.today(), active_page='leads')
+
+
+@lead_bp.route('/<int:lead_id>/email-followup', methods=['POST'])
+@login_required
+def email_followup(lead_id):
+    """Send lead follow-up email manually."""
+    lead = db.get_or_404(Lead, lead_id)
+    ok, message = send_lead_followup_email(lead)
+    flash(message, 'success' if ok else 'warning')
+    return redirect(url_for('leads.view', lead_id=lead.lead_id))
 
 @lead_bp.route('/<int:lead_id>/edit', methods=['GET', 'POST'])
 @login_required

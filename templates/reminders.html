@@ -39,6 +39,10 @@
               </div>
               <div class="d-flex flex-column gap-1">
                 <a href="{{ url_for('payments.add') }}?customer_id={{ c.cust_id }}" class="btn btn-sm btn-success px-2 py-0"><i class="bi bi-cash"></i></a>
+                <form method="POST" action="{{ url_for('reminders.email_billing', customer_id=c.cust_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-sm btn-outline-primary px-2 py-0 w-100" title="Email Billing Reminder" {% if not c.email_id %}disabled{% endif %}><i class="bi bi-envelope"></i></button>
+                </form>
                 <form method="POST" action="{{ url_for('reminders.mark_billing_sent', customer_id=c.cust_id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                   <button class="btn btn-sm btn-outline-secondary px-2 py-0 w-100" title="Mark Notified"><i class="bi bi-check2-all"></i></button>
@@ -67,10 +71,16 @@
                 <a href="{{ url_for('customers.view', cust_id=c.cust_id) }}" class="fw-600">{{ c.cust_name }}</a>
                 <br><span class="text-warning-emphasis fw-600">{{ c.next_billing_date.strftime('%d %b') }}</span>
               </div>
-              <form method="POST" action="{{ url_for('reminders.mark_billing_sent', customer_id=c.cust_id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <button class="btn btn-sm btn-outline-secondary" title="Mark Reminder Sent"><i class="bi bi-check2"></i> Mark Sent</button>
-              </form>
+              <div class="d-flex gap-1">
+                <form method="POST" action="{{ url_for('reminders.email_billing', customer_id=c.cust_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-sm btn-outline-primary" title="Email Billing Reminder" {% if not c.email_id %}disabled{% endif %}><i class="bi bi-envelope"></i></button>
+                </form>
+                <form method="POST" action="{{ url_for('reminders.mark_billing_sent', customer_id=c.cust_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-sm btn-outline-secondary" title="Mark Reminder Sent"><i class="bi bi-check2"></i> Mark Sent</button>
+                </form>
+              </div>
             </div>
           </div>
           {% else %}
@@ -101,6 +111,10 @@
               </div>
               <div class="d-flex flex-column gap-1">
                 <a href="{{ url_for('maintenance.add') }}?machine_id={{ m.machine_id }}" class="btn btn-sm btn-primary px-2 py-0"><i class="bi bi-tools"></i></a>
+                <form method="POST" action="{{ url_for('reminders.email_maintenance', machine_id=m.machine_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-sm btn-outline-primary px-2 py-0 w-100" title="Email Maintenance Reminder" {% if not cust or not cust.email_id %}disabled{% endif %}><i class="bi bi-envelope"></i></button>
+                </form>
                 <form method="POST" action="{{ url_for('reminders.mark_maintenance_sent', machine_id=m.machine_id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                   <button class="btn btn-sm btn-outline-secondary px-2 py-0 w-100"><i class="bi bi-check2-all"></i></button>
@@ -131,10 +145,16 @@
                 <br><span class="text-info-emphasis fw-600">{{ m.next_service_date.strftime('%d %b') }}</span>
                 {% if cust %}<br><small class="text-muted"><i class="bi bi-person"></i> {{ cust.cust_name }}</small>{% endif %}
               </div>
-              <form method="POST" action="{{ url_for('reminders.mark_maintenance_sent', machine_id=m.machine_id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-check2"></i> Mark Sent</button>
-              </form>
+              <div class="d-flex gap-1">
+                <form method="POST" action="{{ url_for('reminders.email_maintenance', machine_id=m.machine_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-sm btn-outline-primary" title="Email Maintenance Reminder" {% if not cust or not cust.email_id %}disabled{% endif %}><i class="bi bi-envelope"></i></button>
+                </form>
+                <form method="POST" action="{{ url_for('reminders.mark_maintenance_sent', machine_id=m.machine_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-check2"></i> Mark Sent</button>
+                </form>
+              </div>
             </div>
           </div>
           {% else %}

@@ -21,6 +21,12 @@
     <a href="{{ url_for('customers.edit', cust_id=customer.cust_id) }}" class="btn btn-outline-primary">
       <i class="bi bi-pencil"></i> Edit
     </a>
+    <form method="POST" action="{{ url_for('customers.email_welcome', cust_id=customer.cust_id) }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button class="btn btn-outline-primary" {% if not customer.email_id %}disabled title="Customer email is missing"{% endif %}>
+        <i class="bi bi-envelope"></i> Email Welcome
+      </button>
+    </form>
     {% endif %}
     {% if current_user.has_permission('uploads') %}
     <a href="{{ url_for('uploads.upload_for_customer', cust_id=customer.cust_id) }}" class="btn btn-outline-secondary">
