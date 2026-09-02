@@ -15,6 +15,8 @@ LABEL maintainer="Homzho ERP" \
 # Prevents .pyc files and enables unbuffered stdout/stderr (important for GCP logging)
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    # Set container timezone to IST so date.today() returns the correct Indian date
+    TZ=Asia/Kolkata \
     # Flask config
     FLASK_APP=app.py \
     FLASK_ENV=production \

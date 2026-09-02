@@ -5,6 +5,7 @@ Flask application factory pattern for PythonAnywhere compatibility.
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+from datetime import timezone, timedelta
 from flask import Flask, render_template, request, jsonify
 from config import config
 from extensions import db, login_manager, migrate, csrf
@@ -173,9 +174,13 @@ def create_app(config_name: str = None) -> Flask:
     # -----------------------------------------------------------------------
     @app.context_processor
     def inject_globals():
-        from datetime import date
+        from datetime import datetime
+        # Always compute today in IST (UTC+5:30) so the correct Indian date
+        # is used even when the Docker/Cloud Run container clock is UTC.
+        IST = timezone(timedelta(hours=5, minutes=30))
+        today_ist = datetime.now(tz=IST).date()
         return {
-            'today': date.today(),
+            'today': today_ist,
             'app_name': 'Homzho ERP',
         }
 
