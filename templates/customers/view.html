@@ -55,7 +55,21 @@
       </div>
     </div>
 
-
+    <!-- Share Details Card -->
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-share text-info"></i> Share Details</div>
+      <div class="card-body">
+        <label class="form-label text-muted small">Copy &amp; share customer info with technician</label>
+        <div class="input-group">
+          <textarea id="shareDetailsText" class="form-control" rows="5" style="resize:vertical; font-size:0.875rem;">{{ customer.cust_name }}
+{{ customer.contact_number }}
+{{ customer.address or '' }}{{ ', ' + customer.area if customer.area else '' }}{{ ', ' + customer.city if customer.city else '' }}{{ ' - ' + (customer.pin | string) if customer.pin else '' }}</textarea>
+          <button type="button" class="btn btn-outline-info align-self-start" id="copyShareDetailsBtn" title="Copy to clipboard">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Referral Card -->
     {% if customer.customer_status == 'Active' and referral_link %}
@@ -359,6 +373,23 @@
       setTimeout(() => { button.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1600);
     } catch (error) {
       input.select();
+      document.execCommand('copy');
+    }
+  });
+})();
+
+// Share Details copy button
+(() => {
+  const shareText = document.getElementById('shareDetailsText');
+  const shareBtn  = document.getElementById('copyShareDetailsBtn');
+  if (!shareText || !shareBtn) return;
+  shareBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareText.value);
+      shareBtn.innerHTML = '<i class="bi bi-check2"></i>';
+      setTimeout(() => { shareBtn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1600);
+    } catch (error) {
+      shareText.select();
       document.execCommand('copy');
     }
   });
